@@ -1,0 +1,141 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  /* Cashier tablet touch optimization */
+  button, input, [role="button"], a {
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+}
+
+/* Dynamic Theme CSS Variables */
+:root, [data-theme="teal"] {
+  --theme-primary: #0f766e;
+  --theme-primary-hover: #115e59;
+  --theme-primary-active: #134e4a;
+  --theme-primary-text: #0f766e;
+  --theme-primary-text-dark: #2dd4bf;
+  --theme-light: #f0fdfa;
+  --theme-light-dark: #042f2e;
+  --theme-light-border: #99f6e4;
+  --theme-light-border-dark: #115e59;
+  --theme-ring: rgba(15, 118, 110, 0.25);
+}
+
+[data-theme="saffron"] {
+  --theme-primary: #c2410c;
+  --theme-primary-hover: #9a3412;
+  --theme-primary-active: #7c2d12;
+  --theme-primary-text: #c2410c;
+  --theme-primary-text-dark: #fb923c;
+  --theme-light: #fff7ed;
+  --theme-light-dark: #431407;
+  --theme-light-border: #fed7aa;
+  --theme-light-border-dark: #9a3412;
+  --theme-ring: rgba(194, 65, 12, 0.25);
+}
+
+[data-theme="indigo"] {
+  --theme-primary: #4338ca;
+  --theme-primary-hover: #3730a3;
+  --theme-primary-active: #312e81;
+  --theme-primary-text: #4338ca;
+  --theme-primary-text-dark: #818cf8;
+  --theme-light: #eef2ff;
+  --theme-light-dark: #1e1b4b;
+  --theme-light-border: #c7d2fe;
+  --theme-light-border-dark: #3730a3;
+  --theme-ring: rgba(67, 56, 202, 0.25);
+}
+
+[data-theme="ruby"] {
+  --theme-primary: #be123c;
+  --theme-primary-hover: #9f1239;
+  --theme-primary-active: #881337;
+  --theme-primary-text: #be123c;
+  --theme-primary-text-dark: #fb7185;
+  --theme-light: #fff1f2;
+  --theme-light-dark: #4c0519;
+  --theme-light-border: #fecdd3;
+  --theme-light-border-dark: #9f1239;
+  --theme-ring: rgba(190, 18, 60, 0.25);
+}
+
+[data-theme="monochrome"] {
+  --theme-primary: #18181b;
+  --theme-primary-hover: #27272a;
+  --theme-primary-active: #09090b;
+  --theme-primary-text: #18181b;
+  --theme-primary-text-dark: #f4f4f5;
+  --theme-light: #f4f4f5;
+  --theme-light-dark: #27272a;
+  --theme-light-border: #e4e4e7;
+  --theme-light-border-dark: #3f3f46;
+  --theme-ring: rgba(24, 24, 27, 0.25);
+}
+
+/* Universal Brand Theme Utilities */
+.bg-brand {
+  background-color: var(--theme-primary) !important;
+}
+.hover\:bg-brand-hover:hover {
+  background-color: var(--theme-primary-hover) !important;
+}
+.text-brand {
+  color: var(--theme-primary-text) !important;
+}
+.dark .text-brand {
+  color: var(--theme-primary-text-dark) !important;
+}
+.bg-brand-light {
+  background-color: var(--theme-light) !important;
+}
+.dark .bg-brand-light {
+  background-color: var(--theme-light-dark) !important;
+}
+.border-brand {
+  border-color: var(--theme-primary) !important;
+}
+.border-brand-light {
+  border-color: var(--theme-light-border) !important;
+}
+.dark .border-brand-light {
+  border-color: var(--theme-light-border-dark) !important;
+}
+.ring-brand {
+  --tw-ring-color: var(--theme-ring) !important;
+}
+
+/* 58mm Thermal paper print styles */
+@media print {
+  body {
+    background: #fff !important;
+    color: #000 !important;
+  }
+  body * {
+    visibility: hidden;
+  }
+  #thermal-receipt-print-area, #thermal-receipt-print-area * {
+    visibility: visible;
+  }
+  #thermal-receipt-print-area {
+    position: fixed;
+    left: 0;
+    top: 0;
+    width: 58mm;
+    max-width: 58mm;
+    margin: 0;
+    padding: 4mm 2mm;
+    font-size: 11px;
+    font-family: monospace;
+    background: #fff;
+    color: #000;
+    line-height: 1.25;
+  }
+  @page {
+    size: 58mm auto;
+    margin: 0mm;
+  }
+}

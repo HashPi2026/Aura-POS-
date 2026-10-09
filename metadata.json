@@ -1,0 +1,6 @@
+{
+  "name": "Aura Cafe POS",
+  "description": "Offline-first Cafe & Roastery POS terminal with barista order customizer (milk/syrups), table floor plan, Kitchen & Barista KOT tickets, UPI/Cash/Card payments, and thermal receipt printing.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
