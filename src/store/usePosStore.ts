@@ -96,6 +96,11 @@ interface PosState {
   // Banner / Toast
   bannerMessage: string | null;
 
+  // PWA / Android APK Installation
+  canInstall: boolean;
+  setCanInstall: (val: boolean) => void;
+  triggerInstallPrompt: () => Promise<void>;
+
   // Actions
   initialize: () => Promise<void>;
   setOrderType: (type: OrderType) => void;
@@ -153,6 +158,26 @@ interface PosState {
   dismissBanner: () => void;
 }
 
+let deferredInstallPrompt: any = null;
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    deferredInstallPrompt = e;
+    try {
+      usePosStore.getState().setCanInstall(true);
+    } catch (_) {}
+  });
+
+  window.addEventListener('appinstalled', () => {
+    deferredInstallPrompt = null;
+    try {
+      usePosStore.getState().setCanInstall(false);
+      usePosStore.getState().showBanner('Aura Cafe installed successfully!');
+    } catch (_) {}
+  });
+}
+
 export const usePosStore = create<PosState>((set, get) => ({
   orderType: 'DINE_IN',
   selectedTable: null,
@@ -196,6 +221,22 @@ export const usePosStore = create<PosState>((set, get) => ({
   showReceiptModal: false,
 
   bannerMessage: null,
+
+  canInstall: false,
+  setCanInstall: (val: boolean) => set({ canInstall: val }),
+  triggerInstallPrompt: async () => {
+    if (deferredInstallPrompt) {
+      deferredInstallPrompt.prompt();
+      const choice = await deferredInstallPrompt.userChoice;
+      if (choice.outcome === 'accepted') {
+        get().showBanner('Installing Aura Cafe app on this device...');
+      }
+      deferredInstallPrompt = null;
+      set({ canInstall: false });
+    } else {
+      get().showBanner('To install on Android: Tap Chrome menu (⋮) -> "Install app" or "Add to Home screen"');
+    }
+  },
 
   initialize: async () => {
     await initDb();

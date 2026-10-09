@@ -13,14 +13,17 @@ import { LoginPinModal } from './components/LoginPinModal';
 import { KotTicketModal } from './components/KotTicketModal';
 import { MobileBottomNav } from './components/MobileBottomNav';
 import { usePosStore } from './store/usePosStore';
+import { useAuthStore } from './store/useAuthStore';
 import { Info, WifiOff } from 'lucide-react';
 
 export const App: React.FC = () => {
   const { initialize, activeTab, bannerMessage, dismissBanner } = usePosStore();
+  const initAuth = useAuthStore((s) => s.initAuth);
 
   useEffect(() => {
     initialize();
-  }, [initialize]);
+    initAuth();
+  }, [initialize, initAuth]);
 
   const isOfflineBanner = bannerMessage?.toLowerCase().includes('saved on this device');
 
