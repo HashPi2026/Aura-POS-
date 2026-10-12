@@ -129,49 +129,52 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   createBusiness: async (name, businessType, gstin) => {
-    const { user, isConfigured } = get();
-    if (!isConfigured || !user) {
-      return { success: false, error: 'User must be authenticated to create a business' };
+    let { user, isConfigured } = get();
+    if (!isConfigured) {
+      return { success: false, error: 'Supabase credentials are not configured' };
     }
 
     set({ isLoading: true, authError: null });
     try {
-      // 1. Insert business
-      const { data: business, error: bizError } = await supabase
-        .from('businesses')
-        .insert({
-          name,
-          business_type: businessType,
-          tax_identifier: gstin || null,
-        })
-        .select()
-        .single();
+      if (!user) {
+        const { data: userData } = await supabase.auth.getUser();
+        if (userData?.user) {
+          user = userData.user;
+          set({ user });
+        }
+      }
 
-      if (bizError) throw bizError;
+      if (!user) {
+        const errorMsg = 'Please sign in or sign up first to attach ownership of this business.';
+        set({ authError: errorMsg });
+        return { success: false, error: errorMsg };
+      }
 
-      // 2. Insert member as owner
-      const { error: memberError } = await supabase
-        .from('business_members')
-        .insert({
-          business_id: business.id,
-          user_id: user.id,
-          role: 'owner',
-          full_name: user.user_metadata?.full_name || user.email?.split('@')[0] || 'Owner',
-        });
+      const ownerName = user.user_metadata?.full_name || user.email?.split('@')[0] || 'Owner';
 
-      if (memberError) throw memberError;
-
-      // 3. Create default location
-      await supabase.from('locations').insert({
-        business_id: business.id,
-        name: 'Main Outlet',
-        is_default: true,
+      // Atomic RPC create_business_and_owner
+      const { data: rpcRes, error: rpcError } = await (supabase.rpc as any)('create_business_and_owner', {
+        p_name: name,
+        p_business_type: businessType,
+        p_tax_identifier: gstin || null,
+        p_user_id: user.id,
+        p_owner_name: ownerName,
       });
 
-      // Update state
-      const userBizList = [...get().userBusinesses, business];
+      if (rpcError) throw rpcError;
+
+      const createdBiz = (rpcRes as any)?.business || {
+        id: (rpcRes as any)?.business_id,
+        name,
+        business_type: businessType,
+        tax_identifier: gstin || null,
+        currency: 'INR',
+        timezone: 'Asia/Kolkata',
+      };
+
+      const userBizList = [...get().userBusinesses, createdBiz];
       set({
-        currentBusiness: business,
+        currentBusiness: createdBiz,
         userBusinesses: userBizList,
         currentRole: 'owner',
       });

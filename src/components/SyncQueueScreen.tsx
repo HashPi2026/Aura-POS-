@@ -10,8 +10,19 @@ import {
 } from 'lucide-react';
 import { usePosStore } from '../store/usePosStore';
 import { formatDateTime, formatInr } from '../utils/format';
+import { backgroundSyncService, SyncStatusInfo } from '../services/BackgroundSyncService';
 
 export const SyncQueueScreen: React.FC = () => {
+  const [workerStatus, setWorkerStatus] = React.useState<SyncStatusInfo>(() =>
+    backgroundSyncService.getStatus()
+  );
+
+  React.useEffect(() => {
+    return backgroundSyncService.subscribe((status) => {
+      setWorkerStatus(status);
+    });
+  }, []);
+
   const {
     sales,
     isOnline,
@@ -41,9 +52,17 @@ export const SyncQueueScreen: React.FC = () => {
               {unsyncedCount > 0 ? `${unsyncedCount} Pending Sync` : 'All Synced'}
             </span>
           </div>
-          <p className="text-xs text-slate-500 mt-1">
-            Offline-first architecture: sales write to local IndexedDB and sync in order to cloud
-          </p>
+          <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+            <span className="flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
+              <span className={`w-2 h-2 rounded-full ${workerStatus.isStable ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'}`} />
+              Background Worker: {workerStatus.isStable ? 'Active (Auto-Syncing)' : 'Waiting for Stable Network'}
+            </span>
+            <span className="text-[11px] text-slate-500">
+              {workerStatus.lastSyncedAt
+                ? `• Last synced: ${formatDateTime(workerStatus.lastSyncedAt)}`
+                : '• Polling every 25s'}
+            </span>
+          </div>
         </div>
 
         <div className="flex items-center gap-3">

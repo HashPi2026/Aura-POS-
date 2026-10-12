@@ -29,6 +29,7 @@ import {
 } from '../db/indexedDb';
 import { mockServer } from '../api/mockServer';
 import { ColorTheme } from '../utils/themePresets';
+import { backgroundSyncService } from '../services/BackgroundSyncService';
 
 export interface CartTotals {
   subtotal: number;
@@ -153,6 +154,7 @@ interface PosState {
   toggleOnline: () => void;
   toggleServerFailure: () => void;
   drainSyncQueue: () => Promise<void>;
+  refreshSales: () => Promise<void>;
   retrySingleSale: (saleId: string) => Promise<void>;
   showBanner: (msg: string) => void;
   dismissBanner: () => void;
@@ -271,12 +273,14 @@ export const usePosStore = create<PosState>((set, get) => ({
       colorTheme: savedColorTheme,
     });
 
-    window.addEventListener('online', () => {
-      set({ isOnline: true });
-      get().drainSyncQueue();
-    });
-    window.addEventListener('offline', () => {
-      set({ isOnline: false });
+    // Start background sync service worker (checks stable connection & periodic retry)
+    backgroundSyncService.start(25000);
+    backgroundSyncService.subscribe((status) => {
+      set({
+        isOnline: status.isOnline && status.isStable,
+        isSyncing: status.state === 'SYNCING',
+      });
+      get().refreshSales();
     });
   },
 
@@ -759,36 +763,28 @@ export const usePosStore = create<PosState>((set, get) => ({
     get().showBanner(next ? 'Server failure simulation ENABLED' : 'Server failure simulation DISABLED');
   },
 
+  refreshSales: async () => {
+    const remaining = await getUnsyncedSales();
+    const updatedSales = await getAllSales();
+    set({
+      unsyncedCount: remaining.length,
+      sales: updatedSales,
+    });
+  },
+
   drainSyncQueue: async () => {
-    const { isSyncing, isOnline, unsyncedCount } = get();
-    if (isSyncing || !isOnline || unsyncedCount === 0) return;
+    const { isSyncing, unsyncedCount } = get();
+    if (isSyncing || unsyncedCount === 0) return;
 
     set({ isSyncing: true });
     try {
-      const unsynced = await getUnsyncedSales();
-      for (const sale of unsynced) {
-        await updateSaleSyncStatus(sale.id, 'SYNCING');
-        try {
-          const res = await mockServer.syncSale(sale);
-          if (res.success) {
-            await updateSaleSyncStatus(sale.id, 'SYNCED');
-          } else {
-            await updateSaleSyncStatus(sale.id, 'FAILED', res.error || 'Server error');
-            break;
-          }
-        } catch (err: any) {
-          await updateSaleSyncStatus(sale.id, 'FAILED', err.message || 'Network failure');
-          break;
-        }
+      const result = await backgroundSyncService.triggerSync();
+      if (result.synced > 0) {
+        get().showBanner(`Synced ${result.synced} offline sale(s) to cloud.`);
       }
     } finally {
-      const remaining = await getUnsyncedSales();
-      const updatedSales = await getAllSales();
-      set({
-        unsyncedCount: remaining.length,
-        sales: updatedSales,
-        isSyncing: false,
-      });
+      await get().refreshSales();
+      set({ isSyncing: false });
     }
   },
 

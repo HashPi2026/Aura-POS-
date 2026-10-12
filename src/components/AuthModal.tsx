@@ -72,6 +72,22 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
   const handleCreateBusiness = async (e: React.FormEvent) => {
     e.preventDefault();
     clearError();
+
+    // If user is not yet signed in, authenticate first
+    if (!user) {
+      if (!email || !password) {
+        useAuthStore.setState({ authError: 'Please enter your account email and password to create a business.' });
+        return;
+      }
+      const signInRes = await signInWithEmail(email, password);
+      if (!signInRes.success) {
+        const signUpRes = await signUpWithEmail(email, password, 'Owner');
+        if (!signUpRes.success) {
+          return;
+        }
+      }
+    }
+
     const res = await createBusiness(bizName, bizType, bizGstin);
     if (res.success) {
       onClose();
@@ -204,6 +220,42 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
             <h3 className="font-bold text-sm text-slate-900 dark:text-white">
               Create New Business Account
             </h3>
+
+            {!user && (
+              <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 flex flex-col gap-2.5">
+                <span className="text-[11px] font-bold text-slate-700 dark:text-slate-300">
+                  Business Owner Account:
+                </span>
+                <div>
+                  <label className="text-[10px] font-bold text-slate-400 mb-1 block">Owner Email</label>
+                  <div className="relative">
+                    <Mail className="w-3.5 h-3.5 absolute left-3 top-2.5 text-slate-400" />
+                    <input
+                      type="email"
+                      required
+                      placeholder="owner@cafe.com"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      className="w-full pl-8 pr-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-900 text-xs font-medium text-slate-900 dark:text-white focus:outline-hidden focus:ring-1 focus:ring-brand"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-slate-400 mb-1 block">Password</label>
+                  <div className="relative">
+                    <Lock className="w-3.5 h-3.5 absolute left-3 top-2.5 text-slate-400" />
+                    <input
+                      type="password"
+                      required
+                      placeholder="••••••••"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      className="w-full pl-8 pr-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-900 text-xs font-medium text-slate-900 dark:text-white focus:outline-hidden focus:ring-1 focus:ring-brand"
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
 
             <div>
               <label className="text-[11px] font-bold text-slate-500 mb-1 block">Business Name</label>
