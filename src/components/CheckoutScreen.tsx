@@ -15,8 +15,10 @@ import {
   ShoppingBag as BagIcon,
   Bike,
   Coffee,
+  ShieldAlert,
 } from 'lucide-react';
 import { usePosStore } from '../store/usePosStore';
+import { can } from '../utils/permissions';
 import { formatInr } from '../utils/format';
 import { ItemCustomizationModal } from './ItemCustomizationModal';
 import { CartItem } from '../db/indexedDb';
@@ -108,16 +110,16 @@ export const CheckoutScreen: React.FC = () => {
     <div className="flex-1 flex flex-col lg:flex-row overflow-hidden bg-slate-100 dark:bg-slate-950 relative">
       {/* Product Catalog & Search (Left side) */}
       <div className="flex-1 flex flex-col overflow-hidden p-3 sm:p-4 border-r border-slate-200 dark:border-slate-800">
-        {/* Top Control Bar: Order Type Switcher & Table Tag */}
-        <div className="flex flex-col gap-2.5 mb-3">
-          <div className="flex items-center justify-between gap-2 flex-wrap">
+        {/* Top Control Bar: Order Type Switcher, Table Tag & Mobile Cart Pill */}
+        <div className="flex flex-col gap-2 mb-2 sm:mb-3">
+          <div className="flex items-center justify-between gap-1.5 overflow-x-auto no-scrollbar pb-0.5">
             {/* Order Type Tabs (Dine-In, Takeaway, Delivery) */}
-            <div className="flex items-center gap-1 bg-white dark:bg-slate-900 p-1 rounded-xl border border-slate-200 dark:border-slate-800 shadow-2xs">
+            <div className="flex items-center gap-1 bg-white dark:bg-slate-900 p-0.5 sm:p-1 rounded-xl border border-slate-200 dark:border-slate-800 shadow-2xs shrink-0">
               <button
                 onClick={() => setOrderType('DINE_IN')}
-                className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold transition-all ${
+                className={`flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1 rounded-lg text-xs font-bold transition-all ${
                   orderType === 'DINE_IN'
-                    ? 'bg-brand text-white shadow-xs'
+                    ? 'bg-teal-600 text-white shadow-xs'
                     : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
                 }`}
               >
@@ -127,21 +129,21 @@ export const CheckoutScreen: React.FC = () => {
 
               <button
                 onClick={() => setOrderType('TAKEAWAY')}
-                className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold transition-all ${
+                className={`flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1 rounded-lg text-xs font-bold transition-all ${
                   orderType === 'TAKEAWAY'
-                    ? 'bg-brand text-white shadow-xs'
+                    ? 'bg-teal-600 text-white shadow-xs'
                     : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
                 }`}
               >
                 <BagIcon className="w-3.5 h-3.5" />
-                <span>Takeaway / Grab & Go</span>
+                <span>Takeaway</span>
               </button>
 
               <button
                 onClick={() => setOrderType('DELIVERY')}
-                className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold transition-all ${
+                className={`flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1 rounded-lg text-xs font-bold transition-all ${
                   orderType === 'DELIVERY'
-                    ? 'bg-brand text-white shadow-xs'
+                    ? 'bg-teal-600 text-white shadow-xs'
                     : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
                 }`}
               >
@@ -154,19 +156,28 @@ export const CheckoutScreen: React.FC = () => {
             {orderType === 'DINE_IN' && (
               <button
                 onClick={() => setActiveTab('TABLES')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all border ${
+                className={`flex items-center gap-1 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-xl text-xs font-bold transition-all border shrink-0 ${
                   selectedTable
                     ? 'bg-amber-50 dark:bg-amber-950 border-amber-300 dark:border-amber-800 text-amber-800 dark:text-amber-300'
                     : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-50'
                 }`}
               >
-                <UtensilsCrossed className="w-3.5 h-3.5" />
-                <span>Table / Bar:</span>
-                <span className="underline decoration-dashed font-black">
+                <UtensilsCrossed className="w-3.5 h-3.5 text-amber-600" />
+                <span className="hidden xs:inline">Table:</span>
+                <span className="underline decoration-dashed font-black truncate max-w-[90px]">
                   {selectedTable ? selectedTable.name : 'Select Table'}
                 </span>
               </button>
             )}
+
+            {/* Mobile View Cart Quick Pill */}
+            <button
+              onClick={() => setIsMobileCartOpen(true)}
+              className="lg:hidden flex items-center gap-1.5 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-xl bg-teal-50 dark:bg-teal-950/60 border border-teal-200 dark:border-teal-800 text-teal-800 dark:text-teal-200 text-xs font-bold shrink-0 ml-auto"
+            >
+              <ShoppingBag className="w-3.5 h-3.5 text-teal-600" />
+              <span>{totals.totalItems > 0 ? `${totals.totalItems} • ${formatInr(totals.totalAmount)}` : 'Cart'}</span>
+            </button>
           </div>
 
           {/* Search bar */}
@@ -212,7 +223,7 @@ export const CheckoutScreen: React.FC = () => {
         </div>
 
         {/* Product Cards Grid */}
-        <div className="flex-1 overflow-y-auto pr-0.5 pb-20 lg:pb-2">
+        <div className="flex-1 overflow-y-auto pr-0.5 pb-28 lg:pb-4">
           {filteredProducts.length === 0 ? (
             <div className="h-full min-h-[220px] flex flex-col items-center justify-center text-slate-400 p-8 text-center">
               <Coffee className="w-10 h-10 mb-2 opacity-40 text-brand" />
@@ -220,14 +231,14 @@ export const CheckoutScreen: React.FC = () => {
               <p className="text-xs">Try another keyword or category</p>
             </div>
           ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-2.5 sm:gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-2 sm:gap-3">
               {filteredProducts.map((prod) => {
                 const qtyInCart = cartQuantityMap.get(prod.id) || 0;
                 return (
                   <button
                     key={prod.id}
                     onClick={() => addToCart(prod)}
-                    className={`p-3 rounded-2xl bg-white dark:bg-slate-900 border text-left flex flex-col justify-between transition-all hover:border-brand hover:shadow-xs active:scale-[0.98] select-none min-h-[125px] ${
+                    className={`p-2.5 sm:p-3 rounded-2xl bg-white dark:bg-slate-900 border text-left flex flex-col justify-between transition-all hover:border-brand hover:shadow-xs active:scale-[0.98] select-none min-h-[120px] sm:min-h-[125px] ${
                       qtyInCart > 0
                         ? 'border-brand ring-2 ring-brand'
                         : 'border-slate-200 dark:border-slate-800'
@@ -235,7 +246,7 @@ export const CheckoutScreen: React.FC = () => {
                   >
                     <div>
                       <div className="flex items-center justify-between gap-1 mb-1.5">
-                        <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 truncate max-w-[100px]">
+                        <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 truncate max-w-[90px] sm:max-w-[100px]">
                           {prod.category}
                         </span>
                         {qtyInCart > 0 && (
@@ -248,16 +259,46 @@ export const CheckoutScreen: React.FC = () => {
                       <h4 className="font-bold text-xs sm:text-sm text-slate-900 dark:text-white line-clamp-2 leading-tight">
                         {prod.name}
                       </h4>
-                      <p className="text-[11px] text-slate-500 mt-0.5">{prod.unit}</p>
+                      <p className="text-[10px] sm:text-[11px] text-slate-500 mt-0.5">{prod.unit}</p>
                     </div>
 
-                    <div className="mt-3 flex items-center justify-between pt-1.5 border-t border-slate-100 dark:border-slate-800/80">
-                      <span className="font-mono font-bold text-sm sm:text-base text-brand">
+                    <div className="mt-2 sm:mt-3 flex items-center justify-between pt-1.5 border-t border-slate-100 dark:border-slate-800/80">
+                      <span className="font-mono font-bold text-xs sm:text-base text-teal-600 dark:text-teal-400">
                         {formatInr(prod.price)}
                       </span>
-                      <div className="w-8 h-8 rounded-xl bg-brand-light text-brand flex items-center justify-center font-bold">
-                        <Plus className="w-4 h-4" />
-                      </div>
+                      {qtyInCart > 0 ? (
+                        <div className="flex items-center gap-1 bg-teal-50 dark:bg-teal-950/80 border border-teal-200 dark:border-teal-800 rounded-xl p-0.5">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              decrementQuantity(prod.id);
+                            }}
+                            className="w-6 h-6 rounded-lg bg-white dark:bg-slate-800 flex items-center justify-center text-teal-700 dark:text-teal-300 font-bold hover:bg-teal-100"
+                            title="Decrease quantity"
+                          >
+                            <Minus className="w-3 h-3" />
+                          </button>
+                          <span className="w-5 text-center font-bold text-xs font-mono text-teal-900 dark:text-teal-100">
+                            {qtyInCart}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              addToCart(prod);
+                            }}
+                            className="w-6 h-6 rounded-lg bg-teal-600 text-white flex items-center justify-center font-bold hover:bg-teal-700"
+                            title="Increase quantity"
+                          >
+                            <Plus className="w-3 h-3" />
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-teal-50 dark:bg-teal-950/80 text-teal-600 dark:text-teal-400 flex items-center justify-center font-bold border border-teal-200 dark:border-teal-800">
+                          <Plus className="w-3.5 h-3.5" />
+                        </div>
+                      )}
                     </div>
                   </button>
                 );
@@ -287,21 +328,21 @@ export const CheckoutScreen: React.FC = () => {
         />
       </div>
 
-      {/* Mobile Sticky Floating Cart Bar */}
+      {/* Mobile Sticky Floating Cart Bar (Above bottom navigation) */}
       {cart.length > 0 && (
-        <div className="lg:hidden fixed bottom-16 left-3 right-3 z-20 animate-slideUp">
+        <div className="lg:hidden fixed bottom-[calc(4.5rem+env(safe-area-inset-bottom,0px))] left-3 right-3 z-30 animate-slideUp">
           <button
             onClick={() => setIsMobileCartOpen(true)}
-            className="w-full h-14 rounded-2xl bg-brand text-white p-3.5 flex items-center justify-between shadow-2xl active:scale-[0.99] transition-all border border-white/20"
+            className="w-full h-14 rounded-2xl bg-teal-600 hover:bg-teal-700 text-white p-3.5 flex items-center justify-between shadow-2xl active:scale-[0.99] transition-all border border-white/20"
           >
             <div className="flex items-center gap-2.5">
-              <div className="w-7 h-7 rounded-lg bg-black/20 flex items-center justify-center font-bold text-xs">
+              <div className="w-8 h-8 rounded-xl bg-black/20 flex items-center justify-center font-bold text-xs">
                 {totals.totalItems}
               </div>
               <div className="text-left leading-tight">
                 <div className="font-bold text-sm">View Cafe Order</div>
                 <div className="text-[10px] text-white/80">
-                  {selectedTable ? `Table ${selectedTable.name}` : orderType} • Tap to review
+                  {selectedTable ? `Table ${selectedTable.name}` : orderType} • Tap to review & pay
                 </div>
               </div>
             </div>
@@ -320,9 +361,9 @@ export const CheckoutScreen: React.FC = () => {
           <div className="bg-white dark:bg-slate-900 rounded-t-3xl max-h-[88vh] flex flex-col p-4 shadow-2xl border-t border-slate-200 dark:border-slate-800 animate-slideUp">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
               <div className="flex items-center gap-2">
-                <Coffee className="w-5 h-5 text-brand" />
+                <Coffee className="w-5 h-5 text-teal-600" />
                 <h3 className="font-bold text-base text-slate-900 dark:text-white">Current Cafe Order</h3>
-                <span className="px-2 py-0.5 rounded-full bg-brand-light text-brand font-bold text-xs">
+                <span className="px-2 py-0.5 rounded-full bg-teal-50 dark:bg-teal-950/60 text-teal-700 dark:text-teal-300 font-bold text-xs">
                   {totals.totalItems} items
                 </span>
               </div>
@@ -585,17 +626,24 @@ const CartContent: React.FC<CartContentProps> = ({
           <span>Send to Barista (KOT / BOT)</span>
         </button>
 
-        <button
-          onClick={onCharge}
-          disabled={cart.length === 0}
-          className="w-full h-14 rounded-xl bg-brand hover:bg-brand-hover text-white font-bold text-base flex items-center justify-between px-5 shadow-md transition-all active:scale-[0.99] disabled:opacity-40 disabled:cursor-not-allowed"
-        >
-          <span>Settle & Print Bill</span>
-          <div className="flex items-center gap-2">
-            <span className="font-mono font-black text-lg">{formatInr(totals.totalAmount)}</span>
-            <ArrowRight className="w-5 h-5" />
+        {can('bill.take') ? (
+          <button
+            onClick={onCharge}
+            disabled={cart.length === 0}
+            className="w-full h-14 rounded-xl bg-brand hover:bg-brand-hover text-white font-bold text-base flex items-center justify-between px-5 shadow-md transition-all active:scale-[0.99] disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            <span>Settle & Print Bill</span>
+            <div className="flex items-center gap-2">
+              <span className="font-mono font-black text-lg">{formatInr(totals.totalAmount)}</span>
+              <ArrowRight className="w-5 h-5" />
+            </div>
+          </button>
+        ) : (
+          <div className="p-3 rounded-xl bg-purple-50 dark:bg-purple-950/60 border border-purple-200 dark:border-purple-800 text-center text-xs text-purple-700 dark:text-purple-300 font-semibold flex items-center justify-center gap-2">
+            <ShieldAlert className="w-4 h-4 shrink-0" />
+            <span>Waiter Mode: Orders can be sent to kitchen. Bill collection is restricted to Cashier.</span>
           </div>
-        </button>
+        )}
       </div>
     </div>
   );

@@ -30,6 +30,13 @@ import {
 import { mockServer } from '../api/mockServer';
 import { ColorTheme } from '../utils/themePresets';
 import { backgroundSyncService } from '../services/BackgroundSyncService';
+import { staffPinService } from '../services/staffPinService';
+import { can } from '../utils/permissions';
+import { useAuthStore } from './useAuthStore';
+import { menuSyncService } from '../services/menuSyncService';
+import { getEnrolledDeviceId, enrollDevice } from '../services/deviceEnrollmentService';
+import { supabase, isSupabaseConfigured, logCloud, logCloudError } from '../lib/supabase';
+import { printerManager } from '../utils/printerManager';
 
 export interface CartTotals {
   subtotal: number;
@@ -119,7 +126,8 @@ interface PosState {
   setActiveTab: (tab: ScreenTab) => void;
   toggleDarkMode: () => void;
   setColorTheme: (theme: ColorTheme) => void;
-  unlockWithPin: (pin: string) => boolean;
+  unlockWithPin: (pin: string, userId?: string) => Promise<{ success: boolean; error?: string; member?: any }>;
+  quickUnlockStaff: (roleOrUserId: string) => Promise<{ success: boolean; error?: string; member?: any }>;
   lockTerminal: () => void;
   setCategory: (category: string) => void;
   setSearchQuery: (query: string) => void;
@@ -138,6 +146,8 @@ interface PosState {
   getTotals: () => CartTotals;
 
   // Payment & Sales
+  reloadBusinessData: (businessId?: string) => Promise<void>;
+  loadSalesForCurrentBusiness: (businessId?: string) => Promise<void>;
   openPaymentModal: () => void;
   closePaymentModal: () => void;
   setPaymentMethod: (method: 'CASH' | 'UPI' | 'CARD') => void;
@@ -158,6 +168,7 @@ interface PosState {
   retrySingleSale: (saleId: string) => Promise<void>;
   showBanner: (msg: string) => void;
   dismissBanner: () => void;
+  loadSampleCafeMenu: () => Promise<void>;
 }
 
 let deferredInstallPrompt: any = null;
@@ -242,12 +253,14 @@ export const usePosStore = create<PosState>((set, get) => ({
 
   initialize: async () => {
     await initDb();
-    const products = await getProducts();
-    const tables = await getTables();
-    const kots = await getAllKOTs();
-    const draftCart = await loadDraftCart();
-    const sales = await getAllSales();
-    const unsynced = await getUnsyncedSales();
+    const currentBiz = useAuthStore.getState().currentBusiness;
+    const currentBizId = currentBiz?.id;
+    const products = await getProducts(currentBizId);
+    const tables = await getTables(currentBizId);
+    const kots = await getAllKOTs(currentBizId);
+    const draftCart = await loadDraftCart(currentBizId);
+    const sales = await getAllSales(currentBizId);
+    const unsynced = await getUnsyncedSales(currentBizId);
 
     // Dark mode preference
     const savedTheme = localStorage.getItem('aura_theme');
@@ -281,6 +294,14 @@ export const usePosStore = create<PosState>((set, get) => ({
         isSyncing: status.state === 'SYNCING',
       });
       get().refreshSales();
+    });
+
+    // Subscribe to PrinterManager hardware state
+    printerManager.subscribe((pState) => {
+      set({
+        printerConnected: pState.status === 'CONNECTED',
+        printerModel: pState.deviceName || (pState.type !== 'NONE' ? `${pState.type} Printer` : 'Thermal Printer'),
+      });
     });
   },
 
@@ -395,6 +416,10 @@ export const usePosStore = create<PosState>((set, get) => ({
   },
 
   sendKOT: async (specialInstructions?: string) => {
+    if (!can('order.send_kitchen')) {
+      get().showBanner('Access Denied: Current role cannot send orders to kitchen.');
+      return;
+    }
     const { cart, selectedTable, orderType, cashierName, kots, tables, printerConnected } = get();
     if (cart.length === 0) return;
 
@@ -414,6 +439,21 @@ export const usePosStore = create<PosState>((set, get) => ({
 
     await saveKOT(newKot);
 
+    const currentBizId = useAuthStore.getState().currentBusiness?.id;
+    if (isSupabaseConfigured() && currentBizId) {
+      supabase.from('kitchen_tickets').insert({
+        business_id: currentBizId,
+        sale_or_order_ref: kotNumber,
+        table_name: newKot.tableName || null,
+        order_type: orderType,
+        status: 'PREPARING',
+        items: cart.map((c) => ({ name: c.name, quantity: c.quantity, notes: c.customNotes || null })),
+        notes: specialInstructions || null,
+      } as any).then(({ error }) => {
+        if (error) logCloudError('Failed to send KOT ticket to Supabase:', error);
+      });
+    }
+
     if (selectedTable) {
       const updatedTables = tables.map((t) =>
         t.id === selectedTable.id
@@ -431,6 +471,7 @@ export const usePosStore = create<PosState>((set, get) => ({
     });
 
     if (printerConnected) {
+      printerManager.printKotSlip(newKot);
       get().showBanner(`${kotNumber} printed to Barista & Kitchen!`);
     } else {
       get().showBanner(`${kotNumber} sent to Kitchen line`);
@@ -438,15 +479,36 @@ export const usePosStore = create<PosState>((set, get) => ({
   },
 
   updateKotStatus: async (id, status) => {
+    if (!can('kitchen.update')) {
+      get().showBanner('Access Denied: Current role cannot update kitchen tickets.');
+      return;
+    }
     await updateKOTStatus(id, status);
     const { kots } = get();
     const updated = kots.map((k) => (k.id === id ? { ...k, status } : k));
     set({ kots: updated });
     const target = updated.find((k) => k.id === id);
+
+    const currentBizId = useAuthStore.getState().currentBusiness?.id;
+    if (isSupabaseConfigured() && currentBizId) {
+      supabase
+        .from('kitchen_tickets')
+        .update({ status } as any)
+        .eq('business_id', currentBizId)
+        .eq('sale_or_order_ref', target?.kotNumber || id)
+        .then(({ error }) => {
+          if (error) logCloudError('Failed to update kitchen ticket status in Supabase:', error);
+        });
+    }
+
     get().showBanner(`${target?.kotNumber || 'KOT'} status updated to ${status}`);
   },
 
   deleteKotTicket: async (id) => {
+    if (!can('kitchen.update')) {
+      get().showBanner('Access Denied: Current role cannot delete kitchen tickets.');
+      return;
+    }
     await deleteKOT(id);
     const { kots } = get();
     set({ kots: kots.filter((k) => k.id !== id) });
@@ -470,7 +532,30 @@ export const usePosStore = create<PosState>((set, get) => ({
     saveDraftCart(updated);
   },
 
-  setActiveTab: (tab) => set({ activeTab: tab }),
+  setActiveTab: (tab) => {
+    const role = useAuthStore.getState().currentRole;
+    if (tab === 'PRODUCTS' && !can('menu.edit')) {
+      get().showBanner(`Access Denied: ${role || 'Current role'} cannot edit menu products.`);
+      return;
+    }
+    if (tab === 'HISTORY' && !can('report.view')) {
+      get().showBanner(`Access Denied: ${role || 'Current role'} cannot view reports.`);
+      return;
+    }
+    if (tab === 'SETTINGS' && !can('staff.manage') && !can('device.manage')) {
+      get().showBanner(`Access Denied: ${role || 'Current role'} cannot access store settings.`);
+      return;
+    }
+    if ((tab === 'CHECKOUT' || tab === 'TABLES') && !can('order.create')) {
+      get().showBanner(`Access Denied: ${role || 'Current role'} cannot create orders.`);
+      return;
+    }
+    if (tab === 'KOT' && !can('kitchen.update') && !can('order.send_kitchen')) {
+      get().showBanner(`Access Denied: ${role || 'Current role'} cannot view kitchen tickets.`);
+      return;
+    }
+    set({ activeTab: tab });
+  },
 
   toggleDarkMode: () => {
     const nextDark = !get().isDarkMode;
@@ -490,37 +575,182 @@ export const usePosStore = create<PosState>((set, get) => ({
     set({ colorTheme: theme });
   },
 
-  unlockWithPin: (pin) => {
-    if (pin === '1234' || pin.length === 4) {
-      set({ isLocked: false });
-      return true;
+  unlockWithPin: async (pin, userId) => {
+    const businessId = useAuthStore.getState().currentBusiness?.id || '00000000-0000-0000-0000-000000000001';
+    const targetUserId = userId;
+
+    const res = await staffPinService.verifyPin(businessId, targetUserId, pin);
+    if (res.success && res.member) {
+      const { member } = res;
+      set({
+        isLocked: false,
+        cashierName: member.fullName,
+      });
+
+      // Ensure session is marked active and standalone mode enabled if not logged in via cloud
+      useAuthStore.setState({
+        currentRole: member.role,
+        isStandaloneMode: true,
+      });
+      if (typeof localStorage !== 'undefined') {
+        localStorage.setItem('aura_cached_role', member.role);
+        localStorage.setItem('aura_standalone_mode', 'true');
+      }
+
+      // Always navigate to the Order home page on login/switch (or KOT for dedicated kitchen staff)
+      if (member.role === 'kitchen') {
+        set({ activeTab: 'KOT' });
+      } else {
+        set({ activeTab: 'CHECKOUT' });
+      }
+
+      return { success: true, member };
     }
-    return false;
+
+    return {
+      success: false,
+      error: res.error || 'Incorrect PIN',
+    };
   },
 
-  lockTerminal: () => set({ isLocked: true }),
+  quickUnlockStaff: async (roleOrUserId) => {
+    const businessId = useAuthStore.getState().currentBusiness?.id || '00000000-0000-0000-0000-000000000001';
+    const res = await staffPinService.quickLogin(businessId, roleOrUserId);
+    if (res.success && res.member) {
+      const { member } = res;
+      set({
+        isLocked: false,
+        cashierName: member.fullName,
+      });
+
+      useAuthStore.setState({
+        currentRole: member.role,
+        isStandaloneMode: true,
+      });
+      if (typeof localStorage !== 'undefined') {
+        localStorage.setItem('aura_cached_role', member.role);
+        localStorage.setItem('aura_standalone_mode', 'true');
+      }
+
+      // Always navigate to the Order home page on login/switch (or KOT for dedicated kitchen staff)
+      if (member.role === 'kitchen') {
+        set({ activeTab: 'KOT' });
+      } else {
+        set({ activeTab: 'CHECKOUT' });
+      }
+
+      return { success: true, member };
+    }
+
+    return { success: false, error: res.error || 'Could not log in' };
+  },
+
+  lockTerminal: () => set({ isLocked: true, activeTab: 'CHECKOUT' }),
+
+  reloadBusinessData: async (newBusinessId?: string) => {
+    const targetBizId = newBusinessId !== undefined ? newBusinessId : useAuthStore.getState().currentBusiness?.id;
+    const currentBiz = useAuthStore.getState().currentBusiness;
+
+    // Pull latest catalog & tables from Supabase if online and configured
+    if (targetBizId && isSupabaseConfigured()) {
+      try {
+        await menuSyncService.pullMenuAndTables(targetBizId);
+        // Auto-enroll terminal if missing
+        const enrolled = await getEnrolledDeviceId(targetBizId);
+        if (!enrolled && useAuthStore.getState().user) {
+          enrollDevice(targetBizId, undefined, get().counterName || 'Counter Terminal 1').catch(() => {});
+        }
+      } catch (err) {
+        logCloudError('Error pulling menu and tables in reloadBusinessData:', err);
+      }
+    }
+
+    const products = await getProducts(targetBizId);
+    const tables = await getTables(targetBizId);
+    const kots = await getAllKOTs(targetBizId);
+    const draftCart = await loadDraftCart(targetBizId);
+    const sales = await getAllSales(targetBizId);
+    const unsynced = await getUnsyncedSales(targetBizId);
+
+    const storeName = currentBiz?.name || (targetBizId ? 'My Café' : 'Aura Specialty Café');
+    const storeGstin = currentBiz?.tax_identifier || '';
+
+    set({
+      products,
+      tables,
+      kots,
+      cart: draftCart,
+      sales,
+      unsyncedCount: unsynced.length,
+      selectedTable: null,
+      storeName,
+      storeGstin,
+      activeTab: 'CHECKOUT',
+    });
+  },
+
+  loadSalesForCurrentBusiness: async (businessId) => {
+    const targetBizId = businessId || useAuthStore.getState().currentBusiness?.id;
+    const sales = await getAllSales(targetBizId);
+    const unsynced = await getUnsyncedSales(targetBizId);
+    set({ sales, unsyncedCount: unsynced.length });
+  },
 
   setCategory: (category) => set({ selectedCategory: category }),
   setSearchQuery: (query) => set({ searchQuery: query }),
 
   saveProduct: async (product) => {
-    await addOrUpdateProduct(product);
-    const products = await getProducts();
+    if (!can('menu.edit')) {
+      get().showBanner('Access Denied: Current role cannot edit menu products.');
+      return;
+    }
+    const currentBizId = useAuthStore.getState().currentBusiness?.id;
+    await addOrUpdateProduct(product, currentBizId);
+    if (currentBizId) {
+      menuSyncService.queueMutation('PRODUCT', 'UPSERT', currentBizId, product);
+    }
+    const products = await getProducts(currentBizId);
     set({ products });
     get().showBanner(`Item "${product.name}" saved!`);
   },
 
   removeProduct: async (productId) => {
+    if (!can('menu.edit')) {
+      get().showBanner('Access Denied: Current role cannot remove menu products.');
+      return;
+    }
+    const currentBizId = useAuthStore.getState().currentBusiness?.id;
+    const targetProd = get().products.find((p) => p.id === productId);
     await deleteProduct(productId);
-    const products = await getProducts();
+    if (currentBizId && targetProd) {
+      menuSyncService.queueMutation('PRODUCT', 'SOFT_DELETE', currentBizId, targetProd);
+    }
+    const products = await getProducts(currentBizId);
     set({ products });
     get().showBanner('Item removed from menu');
   },
 
+  loadSampleCafeMenu: async () => {
+    const currentBizId = useAuthStore.getState().currentBusiness?.id;
+    if (!currentBizId) {
+      get().showBanner('Please select or create a business first.');
+      return;
+    }
+    get().showBanner('Loading sample cafe menu into Supabase...');
+    const res = await menuSyncService.loadSampleCafeMenu(currentBizId);
+    if (res.success) {
+      await get().reloadBusinessData(currentBizId);
+      get().showBanner(`Loaded ${res.count} items into cafe menu!`);
+    } else {
+      get().showBanner(`Failed to load sample menu: ${res.error}`);
+    }
+  },
+
   resetDemoCatalog: async () => {
-    const products = await resetToDefaultProducts();
+    const currentBizId = useAuthStore.getState().currentBusiness?.id;
+    const products = await resetToDefaultProducts(currentBizId);
     set({ products, selectedCategory: 'All', searchQuery: '' });
-    get().showBanner('Reset all 30 Cafe & Roastery menu items!');
+    get().showBanner('Reset menu catalog for this cafe!');
   },
 
   syncTableCart: async (updatedCart: CartItem[]) => {
@@ -537,7 +767,13 @@ export const usePosStore = create<PosState>((set, get) => ({
           : t
       );
       const target = updatedTables.find((t) => t.id === selectedTable.id);
-      if (target) await saveTable(target);
+      if (target) {
+        await saveTable(target);
+        const currentBizId = useAuthStore.getState().currentBusiness?.id;
+        if (currentBizId) {
+          menuSyncService.queueMutation('TABLE', 'UPSERT', currentBizId, target);
+        }
+      }
       set({ tables: updatedTables, selectedTable: target || null });
     }
   },
@@ -650,6 +886,10 @@ export const usePosStore = create<PosState>((set, get) => ({
   },
 
   openPaymentModal: () => {
+    if (!can('bill.take')) {
+      get().showBanner('Access Denied: Waiter/Current role cannot collect bills or payments.');
+      return;
+    }
     const totals = get().getTotals();
     set({
       showPaymentModal: true,
@@ -662,15 +902,21 @@ export const usePosStore = create<PosState>((set, get) => ({
   setAmountTendered: (amount) => set({ amountTendered: amount }),
 
   completeSale: async () => {
+    if (!can('bill.take')) {
+      get().showBanner('Access Denied: Current role cannot complete payments.');
+      return;
+    }
     const state = get();
     const totals = state.getTotals();
     if (state.cart.length === 0) return;
 
+    const currentBizId = useAuthStore.getState().currentBusiness?.id;
     const receiptNum = `AUR-CF-${new Date().getFullYear()}-${1000 + state.sales.length + 1}`;
     const newSale: Sale = {
       id: crypto.randomUUID ? crypto.randomUUID() : `sale_${Date.now()}_${Math.random()}`,
       receiptNumber: receiptNum,
       timestamp: Date.now(),
+      business_id: currentBizId,
       cashierName: state.cashierName,
       counterName: state.counterName,
       orderType: state.orderType,
@@ -698,7 +944,7 @@ export const usePosStore = create<PosState>((set, get) => ({
     await saveSale(newSale);
 
     const updatedSales = [newSale, ...state.sales];
-    const unsynced = await getUnsyncedSales();
+    const unsynced = await getUnsyncedSales(currentBizId);
 
     set({
       sales: updatedSales,
@@ -726,23 +972,36 @@ export const usePosStore = create<PosState>((set, get) => ({
 
   togglePrinter: () => {
     const next = !get().printerConnected;
+    if (!next) {
+      printerManager.disconnect();
+    } else {
+      printerManager.connectSystem();
+    }
     set({ printerConnected: next });
-    get().showBanner(next ? 'Bluetooth Thermal Printer connected (58mm)' : 'Printer disconnected');
+    get().showBanner(next ? 'Thermal Printer enabled (58mm)' : 'Printer disconnected');
   },
 
   printReceipt: () => {
-    const { printerConnected } = get();
+    const { printerConnected, completedSale, storeName, storeAddress, storeGstin } = get();
     if (!printerConnected) {
       set({ printStatus: 'DISCONNECTED_ERROR' });
       return;
     }
     set({ printStatus: 'PRINTING' });
-    setTimeout(() => {
+    setTimeout(async () => {
       set({ printStatus: 'SUCCESS' });
-      try {
-        window.print();
-      } catch (_) {}
-    }, 700);
+      if (completedSale) {
+        await printerManager.printReceiptSlip(completedSale, {
+          name: storeName,
+          address: storeAddress,
+          gstin: storeGstin,
+        });
+      } else {
+        try {
+          window.print();
+        } catch (_) {}
+      }
+    }, 200);
   },
 
   toggleOnline: () => {
@@ -799,13 +1058,14 @@ export const usePosStore = create<PosState>((set, get) => ({
 
     await updateSaleSyncStatus(sale.id, 'SYNCING');
     try {
-      const res = await mockServer.syncSale(sale);
-      if (res.success) {
-        await updateSaleSyncStatus(sale.id, 'SYNCED');
-        get().showBanner(`Receipt ${sale.receiptNumber} synced!`);
+      const res = await backgroundSyncService.triggerSync();
+      if (res.synced > 0) {
+        get().showBanner(`Receipt ${sale.receiptNumber} synchronized to cloud!`);
       } else {
-        await updateSaleSyncStatus(sale.id, 'FAILED', res.error || 'Server error');
-        get().showBanner(`Sync failed: ${res.error}`);
+        const remaining = await getUnsyncedSales();
+        const thisSale = remaining.find((s) => s.id === saleId);
+        const errMsg = thisSale?.lastError || 'Could not synchronize. Please verify cloud login.';
+        get().showBanner(`Sync status: ${errMsg}`);
       }
     } catch (err: any) {
       await updateSaleSyncStatus(sale.id, 'FAILED', err.message);

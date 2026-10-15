@@ -3,11 +3,23 @@
 @tailwind utilities;
 
 @layer base {
+  html, body, #root {
+    height: 100%;
+    height: 100dvh;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+  }
+  
   /* Cashier tablet touch optimization */
   button, input, [role="button"], a {
     touch-action: manipulation;
     -webkit-tap-highlight-color: transparent;
   }
+}
+
+.pb-safe {
+  padding-bottom: max(0.5rem, env(safe-area-inset-bottom, 16px));
 }
 
 /* Dynamic Theme CSS Variables */

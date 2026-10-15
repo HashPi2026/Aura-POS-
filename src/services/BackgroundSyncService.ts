@@ -1,6 +1,10 @@
 import { Sale, getUnsyncedSales, updateSaleSyncStatus, getAllSales } from '../db/indexedDb';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
+import { useAuthStore } from '../store/useAuthStore';
+import { usePosStore } from '../store/usePosStore';
+import { getEnrolledDeviceId, enrollDevice } from './deviceEnrollmentService';
 import { mockServer } from '../api/mockServer';
+import { realtimeSyncService } from './RealtimeSyncService';
 
 export type SyncState = 'IDLE' | 'CHECKING_CONNECTION' | 'SYNCING' | 'OFFLINE' | 'STABLE_ONLINE';
 
@@ -191,17 +195,36 @@ class BackgroundSyncServiceImpl {
           } else {
             failedCount += 1;
             const errMsg = syncResult.error || 'Server rejected sale';
-            await updateSaleSyncStatus(sale.id, 'FAILED', errMsg);
-            this.statusInfo.lastError = errMsg;
-            // Stop on server rejection to preserve chronological batch ordering
+            const attempts = (sale.syncAttempts || 0) + 1;
+            const isWaitingAuthOrDevice = errMsg === 'Waiting for login' || errMsg === 'Waiting for device setup';
+            const isNeedsAttention = attempts >= 3 && !isWaitingAuthOrDevice;
+            const formattedErr = isNeedsAttention ? `Needs attention: ${errMsg}` : errMsg;
+            const newStatus = isWaitingAuthOrDevice ? 'SAVED_OFFLINE' : 'FAILED';
+
+            await updateSaleSyncStatus(sale.id, newStatus, formattedErr);
+            this.statusInfo.lastError = formattedErr;
+
+            if (isNeedsAttention) {
+              console.warn(`[aura-cloud] Sale ${sale.receiptNumber} failed 3 times. Marked 'Needs attention'. Continuing with remaining sales.`);
+              continue;
+            }
+            // Stop on rejection to preserve chronological batch ordering
             break;
           }
         } catch (err: any) {
           failedCount += 1;
           const errMsg = err.message || 'Network error during upload';
-          await updateSaleSyncStatus(sale.id, 'FAILED', errMsg);
-          this.statusInfo.lastError = errMsg;
-          // Break on connection drop; backoff will retry on next cycle
+          const attempts = (sale.syncAttempts || 0) + 1;
+          const isNeedsAttention = attempts >= 3;
+          const formattedErr = isNeedsAttention ? `Needs attention: ${errMsg}` : errMsg;
+
+          await updateSaleSyncStatus(sale.id, 'FAILED', formattedErr);
+          this.statusInfo.lastError = formattedErr;
+
+          if (isNeedsAttention) {
+            console.warn(`[aura-cloud] Sale ${sale.receiptNumber} failed 3 times. Marked 'Needs attention'. Continuing with remaining sales.`);
+            continue;
+          }
           break;
         }
       }
@@ -212,67 +235,122 @@ class BackgroundSyncServiceImpl {
       this.statusInfo.state = this.statusInfo.isStable ? 'IDLE' : 'OFFLINE';
       this.isProcessing = false;
       this.notify();
+      try {
+        await usePosStore.getState().refreshSales();
+      } catch (_) {}
     }
 
     return { synced: syncedCount, failed: failedCount };
   }
 
   /**
-   * Uploads a single sale to the configured cloud backend (Supabase RPC or fallback).
+   * Uploads a single sale to the configured cloud backend (Supabase RPC).
+   * Strictly enforces business_id, location_id, enrolled device_id, and per-line taxes.
    */
   private async uploadSale(sale: Sale): Promise<{ success: boolean; error?: string }> {
-    // If Supabase is configured, use the atomic sync_sale RPC
-    if (isSupabaseConfigured()) {
-      try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user) {
-          const { data, error } = await supabase.rpc('sync_sale', {
-            p_sale: {
-              id: sale.id,
-              receipt_number: sale.receiptNumber,
-              order_type: sale.orderType || 'DINE_IN',
-              table_name: sale.tableName || null,
-              subtotal: sale.subtotal,
-              tax_amount: sale.totalGst,
-              total_amount: sale.totalAmount,
-              client_timestamp: new Date(sale.timestamp).toISOString(),
-              cashier_name: sale.cashierName,
-              items: sale.items.map((it) => ({
-                product_id: it.productId,
-                product_name: it.name,
-                quantity: it.quantity,
-                unit_price: it.price,
-                total_amount: it.price * it.quantity,
-              })),
-              payments: [
-                {
-                  payment_method: sale.paymentMethod || 'CASH',
-                  amount: sale.totalAmount,
-                  tendered_amount: sale.amountTendered || sale.totalAmount,
-                  change_due: sale.changeDue || 0,
-                  reference_id: sale.upiRef || null,
-                  status: 'VERIFIED',
-                },
-              ],
-            },
-          });
+    const authState = useAuthStore.getState();
+    const currentBusiness = authState.currentBusiness;
+    const user = authState.user;
 
-          if (error) {
-            return { success: false, error: error.message };
-          }
-
-          if (data && (data as any).success) {
-            return { success: true };
-          }
-          return { success: false, error: (data as any)?.error || 'RPC validation failed' };
-        }
-      } catch (err: any) {
-        console.warn('Supabase sync RPC error, evaluating fallback:', err.message);
-      }
+    // Requirement: When there is no authenticated session or no business,
+    // do NOT fall back to mockServer and mark the sale synced. Keep the sale queued with status "Waiting for login".
+    if (!user || !currentBusiness || !currentBusiness.id) {
+      return {
+        success: false,
+        error: 'Waiting for login',
+      };
     }
 
-    // Default: Synchronize with the idempotent offline-first sync server
-    return await mockServer.syncSale(sale);
+    if (!isSupabaseConfigured()) {
+      return {
+        success: false,
+        error: 'Cloud not configured',
+      };
+    }
+
+    // Retrieve enrolled terminal UUID
+    let enrolledDeviceId = await getEnrolledDeviceId(currentBusiness.id);
+
+    // Auto-enroll device if authenticated and not yet enrolled
+    if (!enrolledDeviceId && user) {
+      try {
+        const enrollRes = await enrollDevice(
+          currentBusiness.id,
+          currentBusiness.location_id || undefined,
+          usePosStore.getState().counterName || 'POS Terminal'
+        );
+        if (enrollRes.success && enrollRes.deviceId) {
+          enrolledDeviceId = enrollRes.deviceId;
+        }
+      } catch (_) {}
+    }
+
+    // Never send a locally invented ID as device_id
+    if (!enrolledDeviceId) {
+      return {
+        success: false,
+        error: 'Waiting for device setup',
+      };
+    }
+
+    try {
+      const defaultTaxRate = 5.0; // Standard 5% Cafe GST
+
+      const { data, error } = await supabase.rpc('sync_sale', {
+        p_sale: {
+          id: sale.id, // client UUID
+          business_id: currentBusiness.id,
+          location_id: currentBusiness.location_id || null,
+          device_id: enrolledDeviceId, // strictly enrolled device UUID
+          receipt_number: sale.receiptNumber,
+          order_type: sale.orderType || 'DINE_IN',
+          table_name: sale.tableName || null,
+          subtotal: sale.subtotal,
+          tax_amount: sale.totalGst,
+          round_off: sale.roundOff || 0,
+          total_amount: sale.totalAmount,
+          client_timestamp: new Date(sale.timestamp).toISOString(),
+          cashier_name: sale.cashierName,
+          items: sale.items.map((it) => {
+            const itemTaxRate = it.taxRate ?? defaultTaxRate;
+            const lineSubtotal = Math.round(it.price * it.quantity * 100) / 100;
+            const lineTax = Math.round(lineSubtotal * (itemTaxRate / 100) * 100) / 100;
+            return {
+              product_id: it.productId,
+              product_name: it.name,
+              quantity: it.quantity,
+              unit_price: it.price,
+              tax_rate: itemTaxRate,
+              tax_amount: lineTax,
+              discount_amount: 0,
+              total_amount: lineSubtotal + lineTax,
+            };
+          }),
+          payments: [
+            {
+              payment_method: sale.paymentMethod || 'CASH',
+              amount: sale.totalAmount,
+              tendered_amount: sale.amountTendered || sale.totalAmount,
+              change_due: sale.changeDue || 0,
+              reference_id: sale.upiRef || null,
+              status: 'PENDING', // Requirement: Always store as PENDING, never client VERIFIED
+            },
+          ],
+        },
+      });
+
+      if (error) {
+        return { success: false, error: error.message };
+      }
+
+      if (data && (data as any).success) {
+        realtimeSyncService.broadcast('SALE_COMPLETED');
+        return { success: true };
+      }
+      return { success: false, error: (data as any)?.error || 'RPC validation failed' };
+    } catch (err: any) {
+      return { success: false, error: err.message || 'Network upload error' };
+    }
   }
 
   private async checkNetworkAndSync(): Promise<void> {

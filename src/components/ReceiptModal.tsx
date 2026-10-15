@@ -152,15 +152,15 @@ export const ReceiptModal: React.FC = () => {
               <span>{formatInr(completedSale.subtotal)}</span>
             </div>
             <div className="flex justify-between text-[11px]">
-              <span>CGST @ 9%:</span>
+              <span>CGST @ 2.5%:</span>
               <span>{formatInr(completedSale.cgst)}</span>
             </div>
             <div className="flex justify-between text-[11px]">
-              <span>SGST @ 9%:</span>
+              <span>SGST @ 2.5%:</span>
               <span>{formatInr(completedSale.sgst)}</span>
             </div>
             <div className="flex justify-between text-[11px]">
-              <span>Total 18% GST:</span>
+              <span>Cafe 5% GST:</span>
               <span>{formatInr(completedSale.totalGst)}</span>
             </div>
             {completedSale.roundOff !== 0 && (
@@ -266,7 +266,7 @@ export const ReceiptModal: React.FC = () => {
           <span>{formatInr(completedSale.subtotal)}</span>
         </div>
         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px' }}>
-          <span>GST (18%):</span>
+          <span>GST (5%):</span>
           <span>{formatInr(completedSale.totalGst)}</span>
         </div>
         <div
