@@ -9,73 +9,23 @@ import { SalesHistoryScreen } from './components/SalesHistoryScreen';
 import { SettingsScreen } from './components/SettingsScreen';
 import { PaymentModal } from './components/PaymentModal';
 import { ReceiptModal } from './components/ReceiptModal';
+import { LoginPinModal } from './components/LoginPinModal';
 import { KotTicketModal } from './components/KotTicketModal';
-import { LoginScreen } from './components/LoginScreen';
 import { MobileBottomNav } from './components/MobileBottomNav';
 import { usePosStore } from './store/usePosStore';
-import { useAuthStore } from './store/useAuthStore';
-import { realtimeSyncService } from './services/RealtimeSyncService';
-import { Info, WifiOff, Coffee } from 'lucide-react';
+import { Info, WifiOff } from 'lucide-react';
 
 export const App: React.FC = () => {
-  const { initialize, activeTab, bannerMessage, dismissBanner, isLocked, reloadBusinessData } = usePosStore();
-  const { initAuth, user, isConfigured, isLoading, isStandaloneMode, currentBusiness } = useAuthStore();
-  const currentBusinessId = currentBusiness?.id;
+  const { initialize, activeTab, bannerMessage, dismissBanner } = usePosStore();
 
   useEffect(() => {
     initialize();
-    initAuth();
-    realtimeSyncService.start();
-    return () => {
-      realtimeSyncService.stop();
-    };
-  }, [initialize, initAuth]);
-
-  useEffect(() => {
-    if (currentBusinessId) {
-      reloadBusinessData(currentBusinessId);
-    }
-  }, [currentBusinessId, reloadBusinessData]);
-
-  // Loading Splash Screen while checking session
-  if (isLoading) {
-    return (
-      <div className="flex h-[100dvh] w-screen items-center justify-center bg-slate-900 text-white select-none">
-        <div className="flex flex-col items-center gap-3">
-          <div className="w-12 h-12 rounded-2xl bg-teal-600 flex items-center justify-center shadow-lg animate-pulse">
-            <Coffee className="w-6 h-6 text-white" />
-          </div>
-          <div className="flex items-center gap-2 mt-2">
-            <div className="w-3 h-3 border-2 border-teal-400 border-t-transparent rounded-full animate-spin" />
-            <span className="text-xs font-semibold text-slate-400">Initializing Aura POS Terminal...</span>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // Clear 2-Tier Login Gate:
-  // If terminal is locked for staff, OR if cloud auth is unauthenticated and not yet in standalone mode
-  const showLoginGate = isLocked || (!user && !isStandaloneMode);
-
-  if (showLoginGate) {
-    return (
-      <LoginScreen
-        onUnlock={() => {
-          useAuthStore.setState({ isStandaloneMode: true });
-          if (typeof localStorage !== 'undefined') {
-            localStorage.setItem('aura_standalone_mode', 'true');
-          }
-          usePosStore.setState({ isLocked: false, activeTab: 'CHECKOUT' });
-        }}
-      />
-    );
-  }
+  }, [initialize]);
 
   const isOfflineBanner = bannerMessage?.toLowerCase().includes('saved on this device');
 
   return (
-    <div className="flex flex-col h-[100dvh] min-h-[100dvh] max-h-[100dvh] w-screen overflow-hidden bg-slate-100 dark:bg-slate-950 font-sans">
+    <div className="flex flex-col h-screen w-screen overflow-hidden bg-slate-100 dark:bg-slate-950 font-sans">
       {/* Top Persistent App Header */}
       <Header />
 
@@ -122,6 +72,7 @@ export const App: React.FC = () => {
       {/* Modals & Sheets */}
       <PaymentModal />
       <ReceiptModal />
+      <LoginPinModal />
       <KotTicketModal />
     </div>
   );

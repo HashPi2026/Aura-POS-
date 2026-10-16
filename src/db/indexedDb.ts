@@ -11,7 +11,6 @@ export interface Product {
   stock: number;
   unit: string;
   isVeg?: boolean;
-  business_id?: string;
 }
 
 export interface CartItem {
@@ -37,7 +36,6 @@ export interface RestaurantTable {
   seatedAt?: number;
   guestCount?: number;
   serverName?: string;
-  business_id?: string;
 }
 
 export interface KOTRecord {
@@ -51,7 +49,6 @@ export interface KOTRecord {
   status: 'PREPARING' | 'READY' | 'SERVED';
   serverName: string;
   specialInstructions?: string;
-  business_id?: string;
 }
 
 export interface Sale {
@@ -70,7 +67,6 @@ export interface Sale {
   totalGst: number; // 5% cafe GST or 18% standard
   roundOff: number;
   totalAmount: number;
-  business_id?: string;
   paymentMethod: 'CASH' | 'UPI' | 'CARD';
   amountTendered: number;
   changeDue: number;
@@ -90,7 +86,7 @@ interface PosDbSchema extends DBSchema {
   sales: {
     key: string;
     value: Sale;
-    indexes: { 'by-timestamp': number; 'by-syncStatus': string; 'by-business': string };
+    indexes: { 'by-timestamp': number; 'by-syncStatus': string };
   };
   draftCart: {
     key: string;
@@ -112,7 +108,7 @@ interface PosDbSchema extends DBSchema {
 }
 
 const DB_NAME = 'aura_cafe_db';
-const DB_VERSION = 4;
+const DB_VERSION = 3;
 
 let dbPromise: Promise<IDBPDatabase<PosDbSchema>> | null = null;
 
@@ -125,17 +121,10 @@ export function getDb(): Promise<IDBPDatabase<PosDbSchema>> {
           productStore.createIndex('by-category', 'category');
         }
 
-        let saleStore: any;
         if (!db.objectStoreNames.contains('sales')) {
-          saleStore = db.createObjectStore('sales', { keyPath: 'id' });
+          const saleStore = db.createObjectStore('sales', { keyPath: 'id' });
           saleStore.createIndex('by-timestamp', 'timestamp');
           saleStore.createIndex('by-syncStatus', 'syncStatus');
-          saleStore.createIndex('by-business', 'business_id');
-        } else {
-          saleStore = (db as any).transaction?.objectStore('sales');
-          if (saleStore && !saleStore.indexNames.contains('by-business')) {
-            saleStore.createIndex('by-business', 'business_id');
-          }
         }
 
         if (!db.objectStoreNames.contains('draftCart')) {
@@ -516,24 +505,14 @@ export async function initDb(): Promise<void> {
   }
 }
 
-export async function getProducts(businessId?: string): Promise<Product[]> {
+export async function getProducts(): Promise<Product[]> {
   const db = await getDb();
-  const all = await db.getAll('products');
-  if (!businessId) {
-    return all.filter((p) => !p.business_id || p.business_id === 'default');
-  }
-
-  // Strictly return only products belonging to this tenant. Do not auto-seed demo data!
-  return all.filter((p) => p.business_id === businessId && p.isAvailable !== false);
+  return db.getAll('products');
 }
 
-export async function addOrUpdateProduct(product: Product, businessId?: string): Promise<void> {
+export async function addOrUpdateProduct(product: Product): Promise<void> {
   const db = await getDb();
-  const item = { ...product };
-  if (businessId && !item.business_id) {
-    item.business_id = businessId;
-  }
-  await db.put('products', item);
+  await db.put('products', product);
 }
 
 export async function deleteProduct(productId: string): Promise<void> {
@@ -541,88 +520,41 @@ export async function deleteProduct(productId: string): Promise<void> {
   await db.delete('products', productId);
 }
 
-export async function resetToDefaultProducts(businessId?: string): Promise<Product[]> {
+export async function resetToDefaultProducts(): Promise<Product[]> {
   const db = await getDb();
-  const all = await db.getAll('products');
   const tx = db.transaction('products', 'readwrite');
-
-  for (const prod of all) {
-    if (!businessId && (!prod.business_id || prod.business_id === 'default')) {
-      await tx.store.delete(prod.id);
-    } else if (businessId && prod.business_id === businessId) {
-      await tx.store.delete(prod.id);
-    }
-  }
-
-  const seeded: Product[] = [];
+  await tx.store.clear();
   for (const prod of INITIAL_CAFE_PRODUCTS) {
-    const item: Product = {
-      ...prod,
-      id: businessId ? `${businessId}_${prod.id}` : prod.id,
-      business_id: businessId || 'default',
-    };
-    await tx.store.put(item);
-    seeded.push(item);
+    await tx.store.put(prod);
   }
   await tx.done;
-  return seeded;
+  return db.getAll('products');
 }
 
-export async function getTables(businessId?: string): Promise<RestaurantTable[]> {
+export async function getTables(): Promise<RestaurantTable[]> {
   const db = await getDb();
-  const all = await db.getAll('tables');
-  if (!businessId) {
-    return all.filter((t) => !t.business_id || t.business_id === 'default');
-  }
-
-  return all.filter((t) => t.business_id === businessId);
+  return db.getAll('tables');
 }
 
-export async function resetAllTables(businessId?: string): Promise<RestaurantTable[]> {
+export async function resetAllTables(): Promise<RestaurantTable[]> {
   const db = await getDb();
-  const all = await db.getAll('tables');
   const tx = db.transaction('tables', 'readwrite');
-
-  for (const tbl of all) {
-    if (!businessId && (!tbl.business_id || tbl.business_id === 'default')) {
-      await tx.store.delete(tbl.id);
-    } else if (businessId && tbl.business_id === businessId) {
-      await tx.store.delete(tbl.id);
-    }
-  }
-
-  const seeded: RestaurantTable[] = [];
+  await tx.store.clear();
   for (const tbl of INITIAL_CAFE_TABLES) {
-    const item: RestaurantTable = {
-      ...tbl,
-      id: businessId ? `${businessId}_${tbl.id}` : tbl.id,
-      business_id: businessId || 'default',
-      cartItems: [],
-      status: 'VACANT',
-    };
-    await tx.store.put(item);
-    seeded.push(item);
+    await tx.store.put(tbl);
   }
   await tx.done;
-  return seeded;
+  return db.getAll('tables');
 }
 
-export async function saveTable(table: RestaurantTable, businessId?: string): Promise<void> {
+export async function saveTable(table: RestaurantTable): Promise<void> {
   const db = await getDb();
-  const item = { ...table };
-  if (businessId && !item.business_id) {
-    item.business_id = businessId;
-  }
-  await db.put('tables', item);
+  await db.put('tables', table);
 }
 
-export async function saveKOT(kot: KOTRecord, businessId?: string): Promise<void> {
+export async function saveKOT(kot: KOTRecord): Promise<void> {
   const db = await getDb();
-  const item = { ...kot };
-  if (businessId && !item.business_id) {
-    item.business_id = businessId;
-  }
-  await db.put('kotList', item);
+  await db.put('kotList', kot);
 }
 
 export async function updateKOTStatus(
@@ -642,86 +574,62 @@ export async function deleteKOT(id: string): Promise<void> {
   await db.delete('kotList', id);
 }
 
-export async function clearServedKOTs(businessId?: string): Promise<KOTRecord[]> {
+export async function clearServedKOTs(): Promise<KOTRecord[]> {
   const db = await getDb();
   const allKots = await db.getAll('kotList');
   const tx = db.transaction('kotList', 'readwrite');
   for (const kot of allKots) {
     if (kot.status === 'SERVED') {
-      if (!businessId || kot.business_id === businessId) {
-        await tx.store.delete(kot.id);
-      }
+      await tx.store.delete(kot.id);
     }
   }
   await tx.done;
   const remaining = await db.getAllFromIndex('kotList', 'by-timestamp');
-  const list = remaining.reverse();
-  if (businessId) {
-    return list.filter((k) => k.business_id === businessId);
-  }
-  return list;
+  return remaining.reverse();
 }
 
-export async function getAllKOTs(businessId?: string): Promise<KOTRecord[]> {
+export async function getAllKOTs(): Promise<KOTRecord[]> {
   const db = await getDb();
   const kots = await db.getAllFromIndex('kotList', 'by-timestamp');
-  const reversed = kots.reverse();
-  if (businessId) {
-    return reversed.filter((k) => k.business_id === businessId);
-  }
-  return reversed;
+  return kots.reverse();
 }
 
-// Draft cart persistence with multi-tenant isolation
-export async function saveDraftCart(items: CartItem[], businessId?: string): Promise<void> {
+// Draft cart persistence
+export async function saveDraftCart(items: CartItem[]): Promise<void> {
   const db = await getDb();
-  const cartKey = `current_cart_${businessId || 'default'}`;
-  await db.put('draftCart', items, cartKey);
+  await db.put('draftCart', items, 'current_cart');
 }
 
-export async function loadDraftCart(businessId?: string): Promise<CartItem[]> {
+export async function loadDraftCart(): Promise<CartItem[]> {
   const db = await getDb();
-  const cartKey = `current_cart_${businessId || 'default'}`;
-  const cart = await db.get('draftCart', cartKey);
+  const cart = await db.get('draftCart', 'current_cart');
   return cart || [];
 }
 
-export async function clearDraftCart(businessId?: string): Promise<void> {
+export async function clearDraftCart(): Promise<void> {
   const db = await getDb();
-  const cartKey = `current_cart_${businessId || 'default'}`;
-  await db.delete('draftCart', cartKey);
+  await db.delete('draftCart', 'current_cart');
 }
 
-// Sales & Queue operations - STRICT Multi-Tenant CIA Isolation
+// Sales & Queue operations
 export async function saveSale(sale: Sale): Promise<void> {
   const db = await getDb();
   const tx = db.transaction(['sales', 'draftCart'], 'readwrite');
   await tx.objectStore('sales').put(sale);
-  const cartKey = `current_cart_${sale.business_id || 'default'}`;
-  await tx.objectStore('draftCart').delete(cartKey);
   await tx.objectStore('draftCart').delete('current_cart');
   await tx.done;
 }
 
-export async function getAllSales(businessId?: string): Promise<Sale[]> {
+export async function getAllSales(): Promise<Sale[]> {
   const db = await getDb();
   const sales = await db.getAllFromIndex('sales', 'by-timestamp');
-  const reversed = sales.reverse();
-  if (businessId) {
-    // CIA Rule: Confidentiality & Integrity. Never return other tenants' sales or empty business_id
-    return reversed.filter((s) => s.business_id === businessId);
-  }
-  return reversed.filter((s) => !s.business_id || s.business_id === 'default');
+  return sales.reverse();
 }
 
-export async function getUnsyncedSales(businessId?: string): Promise<Sale[]> {
+export async function getUnsyncedSales(): Promise<Sale[]> {
   const db = await getDb();
   const all = await db.getAllFromIndex('sales', 'by-timestamp');
-  const unsynced = all.filter((s) => s.syncStatus !== 'SYNCED');
-  if (businessId) {
-    return unsynced.filter((s) => s.business_id === businessId);
-  }
-  return unsynced.filter((s) => !s.business_id || s.business_id === 'default');
+  return all.filter((s) => s.syncStatus !== 'SYNCED');
 }
 
 export async function updateSaleSyncStatus(
