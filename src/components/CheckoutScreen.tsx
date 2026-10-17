@@ -15,8 +15,10 @@ import {
   ShoppingBag as BagIcon,
   Bike,
   Coffee,
+  ShieldAlert,
 } from 'lucide-react';
 import { usePosStore } from '../store/usePosStore';
+import { can } from '../utils/permissions';
 import { formatInr } from '../utils/format';
 import { ItemCustomizationModal } from './ItemCustomizationModal';
 import { CartItem } from '../db/indexedDb';
@@ -585,17 +587,24 @@ const CartContent: React.FC<CartContentProps> = ({
           <span>Send to Barista (KOT / BOT)</span>
         </button>
 
-        <button
-          onClick={onCharge}
-          disabled={cart.length === 0}
-          className="w-full h-14 rounded-xl bg-brand hover:bg-brand-hover text-white font-bold text-base flex items-center justify-between px-5 shadow-md transition-all active:scale-[0.99] disabled:opacity-40 disabled:cursor-not-allowed"
-        >
-          <span>Settle & Print Bill</span>
-          <div className="flex items-center gap-2">
-            <span className="font-mono font-black text-lg">{formatInr(totals.totalAmount)}</span>
-            <ArrowRight className="w-5 h-5" />
+        {can('bill.take') ? (
+          <button
+            onClick={onCharge}
+            disabled={cart.length === 0}
+            className="w-full h-14 rounded-xl bg-brand hover:bg-brand-hover text-white font-bold text-base flex items-center justify-between px-5 shadow-md transition-all active:scale-[0.99] disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            <span>Settle & Print Bill</span>
+            <div className="flex items-center gap-2">
+              <span className="font-mono font-black text-lg">{formatInr(totals.totalAmount)}</span>
+              <ArrowRight className="w-5 h-5" />
+            </div>
+          </button>
+        ) : (
+          <div className="p-3 rounded-xl bg-purple-50 dark:bg-purple-950/60 border border-purple-200 dark:border-purple-800 text-center text-xs text-purple-700 dark:text-purple-300 font-semibold flex items-center justify-center gap-2">
+            <ShieldAlert className="w-4 h-4 shrink-0" />
+            <span>Waiter Mode: Orders can be sent to kitchen. Bill collection is restricted to Cashier.</span>
           </div>
-        </button>
+        )}
       </div>
     </div>
   );

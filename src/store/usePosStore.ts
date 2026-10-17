@@ -29,6 +29,10 @@ import {
 } from '../db/indexedDb';
 import { mockServer } from '../api/mockServer';
 import { ColorTheme } from '../utils/themePresets';
+import { backgroundSyncService } from '../services/BackgroundSyncService';
+import { staffPinService } from '../services/staffPinService';
+import { can } from '../utils/permissions';
+import { useAuthStore } from './useAuthStore';
 
 export interface CartTotals {
   subtotal: number;
@@ -96,6 +100,11 @@ interface PosState {
   // Banner / Toast
   bannerMessage: string | null;
 
+  // PWA / Android APK Installation
+  canInstall: boolean;
+  setCanInstall: (val: boolean) => void;
+  triggerInstallPrompt: () => Promise<void>;
+
   // Actions
   initialize: () => Promise<void>;
   setOrderType: (type: OrderType) => void;
@@ -113,7 +122,8 @@ interface PosState {
   setActiveTab: (tab: ScreenTab) => void;
   toggleDarkMode: () => void;
   setColorTheme: (theme: ColorTheme) => void;
-  unlockWithPin: (pin: string) => boolean;
+  unlockWithPin: (pin: string, userId?: string) => Promise<{ success: boolean; error?: string; member?: any }>;
+  quickUnlockStaff: (roleOrUserId: string) => Promise<{ success: boolean; error?: string; member?: any }>;
   lockTerminal: () => void;
   setCategory: (category: string) => void;
   setSearchQuery: (query: string) => void;
@@ -148,9 +158,30 @@ interface PosState {
   toggleOnline: () => void;
   toggleServerFailure: () => void;
   drainSyncQueue: () => Promise<void>;
+  refreshSales: () => Promise<void>;
   retrySingleSale: (saleId: string) => Promise<void>;
   showBanner: (msg: string) => void;
   dismissBanner: () => void;
+}
+
+let deferredInstallPrompt: any = null;
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    deferredInstallPrompt = e;
+    try {
+      usePosStore.getState().setCanInstall(true);
+    } catch (_) {}
+  });
+
+  window.addEventListener('appinstalled', () => {
+    deferredInstallPrompt = null;
+    try {
+      usePosStore.getState().setCanInstall(false);
+      usePosStore.getState().showBanner('Aura Cafe installed successfully!');
+    } catch (_) {}
+  });
 }
 
 export const usePosStore = create<PosState>((set, get) => ({
@@ -197,6 +228,22 @@ export const usePosStore = create<PosState>((set, get) => ({
 
   bannerMessage: null,
 
+  canInstall: false,
+  setCanInstall: (val: boolean) => set({ canInstall: val }),
+  triggerInstallPrompt: async () => {
+    if (deferredInstallPrompt) {
+      deferredInstallPrompt.prompt();
+      const choice = await deferredInstallPrompt.userChoice;
+      if (choice.outcome === 'accepted') {
+        get().showBanner('Installing Aura Cafe app on this device...');
+      }
+      deferredInstallPrompt = null;
+      set({ canInstall: false });
+    } else {
+      get().showBanner('To install on Android: Tap Chrome menu (⋮) -> "Install app" or "Add to Home screen"');
+    }
+  },
+
   initialize: async () => {
     await initDb();
     const products = await getProducts();
@@ -230,12 +277,14 @@ export const usePosStore = create<PosState>((set, get) => ({
       colorTheme: savedColorTheme,
     });
 
-    window.addEventListener('online', () => {
-      set({ isOnline: true });
-      get().drainSyncQueue();
-    });
-    window.addEventListener('offline', () => {
-      set({ isOnline: false });
+    // Start background sync service worker (checks stable connection & periodic retry)
+    backgroundSyncService.start(25000);
+    backgroundSyncService.subscribe((status) => {
+      set({
+        isOnline: status.isOnline && status.isStable,
+        isSyncing: status.state === 'SYNCING',
+      });
+      get().refreshSales();
     });
   },
 
@@ -350,6 +399,10 @@ export const usePosStore = create<PosState>((set, get) => ({
   },
 
   sendKOT: async (specialInstructions?: string) => {
+    if (!can('order.send_kitchen')) {
+      get().showBanner('Access Denied: Current role cannot send orders to kitchen.');
+      return;
+    }
     const { cart, selectedTable, orderType, cashierName, kots, tables, printerConnected } = get();
     if (cart.length === 0) return;
 
@@ -393,6 +446,10 @@ export const usePosStore = create<PosState>((set, get) => ({
   },
 
   updateKotStatus: async (id, status) => {
+    if (!can('kitchen.update')) {
+      get().showBanner('Access Denied: Current role cannot update kitchen tickets.');
+      return;
+    }
     await updateKOTStatus(id, status);
     const { kots } = get();
     const updated = kots.map((k) => (k.id === id ? { ...k, status } : k));
@@ -402,6 +459,10 @@ export const usePosStore = create<PosState>((set, get) => ({
   },
 
   deleteKotTicket: async (id) => {
+    if (!can('kitchen.update')) {
+      get().showBanner('Access Denied: Current role cannot delete kitchen tickets.');
+      return;
+    }
     await deleteKOT(id);
     const { kots } = get();
     set({ kots: kots.filter((k) => k.id !== id) });
@@ -425,7 +486,30 @@ export const usePosStore = create<PosState>((set, get) => ({
     saveDraftCart(updated);
   },
 
-  setActiveTab: (tab) => set({ activeTab: tab }),
+  setActiveTab: (tab) => {
+    const role = useAuthStore.getState().currentRole;
+    if (tab === 'PRODUCTS' && !can('menu.edit')) {
+      get().showBanner(`Access Denied: ${role || 'Current role'} cannot edit menu products.`);
+      return;
+    }
+    if (tab === 'HISTORY' && !can('report.view')) {
+      get().showBanner(`Access Denied: ${role || 'Current role'} cannot view reports.`);
+      return;
+    }
+    if (tab === 'SETTINGS' && !can('staff.manage') && !can('device.manage')) {
+      get().showBanner(`Access Denied: ${role || 'Current role'} cannot access store settings.`);
+      return;
+    }
+    if ((tab === 'CHECKOUT' || tab === 'TABLES') && !can('order.create')) {
+      get().showBanner(`Access Denied: ${role || 'Current role'} cannot create orders.`);
+      return;
+    }
+    if (tab === 'KOT' && !can('kitchen.update') && !can('order.send_kitchen')) {
+      get().showBanner(`Access Denied: ${role || 'Current role'} cannot view kitchen tickets.`);
+      return;
+    }
+    set({ activeTab: tab });
+  },
 
   toggleDarkMode: () => {
     const nextDark = !get().isDarkMode;
@@ -445,20 +529,86 @@ export const usePosStore = create<PosState>((set, get) => ({
     set({ colorTheme: theme });
   },
 
-  unlockWithPin: (pin) => {
-    if (pin === '1234' || pin.length === 4) {
-      set({ isLocked: false });
-      return true;
+  unlockWithPin: async (pin, userId) => {
+    const businessId = useAuthStore.getState().currentBusiness?.id || '00000000-0000-0000-0000-000000000001';
+    const targetUserId = userId;
+
+    const res = await staffPinService.verifyPin(businessId, targetUserId, pin);
+    if (res.success && res.member) {
+      const { member } = res;
+      set({
+        isLocked: false,
+        cashierName: member.fullName,
+      });
+
+      // Ensure session is marked active and standalone mode enabled if not logged in via cloud
+      useAuthStore.setState({
+        currentRole: member.role,
+        isStandaloneMode: true,
+      });
+      if (typeof localStorage !== 'undefined') {
+        localStorage.setItem('aura_cached_role', member.role);
+        localStorage.setItem('aura_standalone_mode', 'true');
+      }
+
+      // Always navigate to the Order home page on login/switch (or KOT for dedicated kitchen staff)
+      if (member.role === 'kitchen') {
+        set({ activeTab: 'KOT' });
+      } else {
+        set({ activeTab: 'CHECKOUT' });
+      }
+
+      return { success: true, member };
     }
-    return false;
+
+    return {
+      success: false,
+      error: res.error || 'Incorrect PIN',
+    };
   },
 
-  lockTerminal: () => set({ isLocked: true }),
+  quickUnlockStaff: async (roleOrUserId) => {
+    const businessId = useAuthStore.getState().currentBusiness?.id || '00000000-0000-0000-0000-000000000001';
+    const res = await staffPinService.quickLogin(businessId, roleOrUserId);
+    if (res.success && res.member) {
+      const { member } = res;
+      set({
+        isLocked: false,
+        cashierName: member.fullName,
+      });
+
+      useAuthStore.setState({
+        currentRole: member.role,
+        isStandaloneMode: true,
+      });
+      if (typeof localStorage !== 'undefined') {
+        localStorage.setItem('aura_cached_role', member.role);
+        localStorage.setItem('aura_standalone_mode', 'true');
+      }
+
+      // Always navigate to the Order home page on login/switch (or KOT for dedicated kitchen staff)
+      if (member.role === 'kitchen') {
+        set({ activeTab: 'KOT' });
+      } else {
+        set({ activeTab: 'CHECKOUT' });
+      }
+
+      return { success: true, member };
+    }
+
+    return { success: false, error: res.error || 'Could not log in' };
+  },
+
+  lockTerminal: () => set({ isLocked: true, activeTab: 'CHECKOUT' }),
 
   setCategory: (category) => set({ selectedCategory: category }),
   setSearchQuery: (query) => set({ searchQuery: query }),
 
   saveProduct: async (product) => {
+    if (!can('menu.edit')) {
+      get().showBanner('Access Denied: Current role cannot edit menu products.');
+      return;
+    }
     await addOrUpdateProduct(product);
     const products = await getProducts();
     set({ products });
@@ -466,6 +616,10 @@ export const usePosStore = create<PosState>((set, get) => ({
   },
 
   removeProduct: async (productId) => {
+    if (!can('menu.edit')) {
+      get().showBanner('Access Denied: Current role cannot remove menu products.');
+      return;
+    }
     await deleteProduct(productId);
     const products = await getProducts();
     set({ products });
@@ -605,6 +759,10 @@ export const usePosStore = create<PosState>((set, get) => ({
   },
 
   openPaymentModal: () => {
+    if (!can('bill.take')) {
+      get().showBanner('Access Denied: Waiter/Current role cannot collect bills or payments.');
+      return;
+    }
     const totals = get().getTotals();
     set({
       showPaymentModal: true,
@@ -617,6 +775,10 @@ export const usePosStore = create<PosState>((set, get) => ({
   setAmountTendered: (amount) => set({ amountTendered: amount }),
 
   completeSale: async () => {
+    if (!can('bill.take')) {
+      get().showBanner('Access Denied: Current role cannot complete payments.');
+      return;
+    }
     const state = get();
     const totals = state.getTotals();
     if (state.cart.length === 0) return;
@@ -718,36 +880,28 @@ export const usePosStore = create<PosState>((set, get) => ({
     get().showBanner(next ? 'Server failure simulation ENABLED' : 'Server failure simulation DISABLED');
   },
 
+  refreshSales: async () => {
+    const remaining = await getUnsyncedSales();
+    const updatedSales = await getAllSales();
+    set({
+      unsyncedCount: remaining.length,
+      sales: updatedSales,
+    });
+  },
+
   drainSyncQueue: async () => {
-    const { isSyncing, isOnline, unsyncedCount } = get();
-    if (isSyncing || !isOnline || unsyncedCount === 0) return;
+    const { isSyncing, unsyncedCount } = get();
+    if (isSyncing || unsyncedCount === 0) return;
 
     set({ isSyncing: true });
     try {
-      const unsynced = await getUnsyncedSales();
-      for (const sale of unsynced) {
-        await updateSaleSyncStatus(sale.id, 'SYNCING');
-        try {
-          const res = await mockServer.syncSale(sale);
-          if (res.success) {
-            await updateSaleSyncStatus(sale.id, 'SYNCED');
-          } else {
-            await updateSaleSyncStatus(sale.id, 'FAILED', res.error || 'Server error');
-            break;
-          }
-        } catch (err: any) {
-          await updateSaleSyncStatus(sale.id, 'FAILED', err.message || 'Network failure');
-          break;
-        }
+      const result = await backgroundSyncService.triggerSync();
+      if (result.synced > 0) {
+        get().showBanner(`Synced ${result.synced} offline sale(s) to cloud.`);
       }
     } finally {
-      const remaining = await getUnsyncedSales();
-      const updatedSales = await getAllSales();
-      set({
-        unsyncedCount: remaining.length,
-        sales: updatedSales,
-        isSyncing: false,
-      });
+      await get().refreshSales();
+      set({ isSyncing: false });
     }
   },
 

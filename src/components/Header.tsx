@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   RefreshCw,
   Printer,
@@ -14,10 +14,18 @@ import {
   UtensilsCrossed,
   ChefHat,
   Package,
+  Download,
+  ShieldCheck,
+  User,
 } from 'lucide-react';
 import { usePosStore } from '../store/usePosStore';
+import { useAuthStore } from '../store/useAuthStore';
+import { can } from '../utils/permissions';
+import { AuthModal } from './AuthModal';
 
 export const Header: React.FC = () => {
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const { user, currentBusiness, currentRole } = useAuthStore();
   const {
     activeTab,
     setActiveTab,
@@ -32,6 +40,8 @@ export const Header: React.FC = () => {
     cashierName,
     counterName,
     lockTerminal,
+    triggerInstallPrompt,
+    canInstall,
   } = usePosStore();
 
   return (
@@ -118,97 +128,121 @@ export const Header: React.FC = () => {
 
         {/* Right: Desktop/Tablet Navigation Tabs, Theme Toggle, Cashier Profile */}
         <div className="flex items-center gap-1 sm:gap-2">
-          {/* Desktop/Tablet Navigation Tabs */}
+          {/* Desktop/Tablet Navigation Tabs (Filtered by Active Role Permissions) */}
           <nav className="hidden md:flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl">
-            <button
-              onClick={() => setActiveTab('CHECKOUT')}
-              className={`flex items-center gap-1.5 px-2.5 lg:px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                activeTab === 'CHECKOUT'
-                  ? 'bg-brand text-white shadow-2xs'
-                  : 'text-slate-600 dark:text-slate-300 hover:text-slate-900'
-              }`}
-            >
-              <ShoppingBag className="w-3.5 h-3.5" />
-              <span>Order</span>
-            </button>
+            {can('order.create') && (
+              <button
+                onClick={() => setActiveTab('CHECKOUT')}
+                className={`flex items-center gap-1.5 px-2.5 lg:px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                  activeTab === 'CHECKOUT'
+                    ? 'bg-brand text-white shadow-2xs'
+                    : 'text-slate-600 dark:text-slate-300 hover:text-slate-900'
+                }`}
+              >
+                <ShoppingBag className="w-3.5 h-3.5" />
+                <span>Order</span>
+              </button>
+            )}
 
-            <button
-              onClick={() => setActiveTab('TABLES')}
-              className={`flex items-center gap-1.5 px-2.5 lg:px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                activeTab === 'TABLES'
-                  ? 'bg-brand text-white shadow-2xs'
-                  : 'text-slate-600 dark:text-slate-300 hover:text-slate-900'
-              }`}
-            >
-              <UtensilsCrossed className="w-3.5 h-3.5" />
-              <span>Tables</span>
-            </button>
+            {can('order.create') && (
+              <button
+                onClick={() => setActiveTab('TABLES')}
+                className={`flex items-center gap-1.5 px-2.5 lg:px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                  activeTab === 'TABLES'
+                    ? 'bg-brand text-white shadow-2xs'
+                    : 'text-slate-600 dark:text-slate-300 hover:text-slate-900'
+                }`}
+              >
+                <UtensilsCrossed className="w-3.5 h-3.5" />
+                <span>Tables</span>
+              </button>
+            )}
 
-            <button
-              onClick={() => setActiveTab('KOT')}
-              className={`flex items-center gap-1.5 px-2.5 lg:px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                activeTab === 'KOT'
-                  ? 'bg-brand text-white shadow-2xs'
-                  : 'text-slate-600 dark:text-slate-300 hover:text-slate-900'
-              }`}
-            >
-              <ChefHat className="w-3.5 h-3.5" />
-              <span>Barista KOT</span>
-            </button>
+            {(can('kitchen.update') || can('order.send_kitchen')) && (
+              <button
+                onClick={() => setActiveTab('KOT')}
+                className={`flex items-center gap-1.5 px-2.5 lg:px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                  activeTab === 'KOT'
+                    ? 'bg-brand text-white shadow-2xs'
+                    : 'text-slate-600 dark:text-slate-300 hover:text-slate-900'
+                }`}
+              >
+                <ChefHat className="w-3.5 h-3.5" />
+                <span>Barista KOT</span>
+              </button>
+            )}
 
-            <button
-              onClick={() => setActiveTab('PRODUCTS')}
-              className={`flex items-center gap-1.5 px-2.5 lg:px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                activeTab === 'PRODUCTS'
-                  ? 'bg-brand text-white shadow-2xs'
-                  : 'text-slate-600 dark:text-slate-300 hover:text-slate-900'
-              }`}
-            >
-              <Package className="w-3.5 h-3.5" />
-              <span>Menu</span>
-            </button>
+            {can('menu.edit') && (
+              <button
+                onClick={() => setActiveTab('PRODUCTS')}
+                className={`flex items-center gap-1.5 px-2.5 lg:px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                  activeTab === 'PRODUCTS'
+                    ? 'bg-brand text-white shadow-2xs'
+                    : 'text-slate-600 dark:text-slate-300 hover:text-slate-900'
+                }`}
+              >
+                <Package className="w-3.5 h-3.5" />
+                <span>Menu</span>
+              </button>
+            )}
 
-            <button
-              onClick={() => setActiveTab('QUEUE')}
-              className={`flex items-center gap-1.5 px-2.5 lg:px-3 py-1.5 rounded-lg text-xs font-semibold transition-all relative ${
-                activeTab === 'QUEUE'
-                  ? 'bg-brand text-white shadow-2xs'
-                  : 'text-slate-600 dark:text-slate-300 hover:text-slate-900'
-              }`}
-            >
-              <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
-              <span>Queue</span>
-              {unsyncedCount > 0 && (
-                <span className="px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-amber-500 text-white">
-                  {unsyncedCount}
-                </span>
-              )}
-            </button>
+            {(can('report.view') || can('bill.take')) && (
+              <button
+                onClick={() => setActiveTab('QUEUE')}
+                className={`flex items-center gap-1.5 px-2.5 lg:px-3 py-1.5 rounded-lg text-xs font-semibold transition-all relative ${
+                  activeTab === 'QUEUE'
+                    ? 'bg-brand text-white shadow-2xs'
+                    : 'text-slate-600 dark:text-slate-300 hover:text-slate-900'
+                }`}
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
+                <span>Queue</span>
+                {unsyncedCount > 0 && (
+                  <span className="px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-amber-500 text-white">
+                    {unsyncedCount}
+                  </span>
+                )}
+              </button>
+            )}
 
-            <button
-              onClick={() => setActiveTab('HISTORY')}
-              className={`flex items-center gap-1.5 px-2.5 lg:px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                activeTab === 'HISTORY'
-                  ? 'bg-brand text-white shadow-2xs'
-                  : 'text-slate-600 dark:text-slate-300 hover:text-slate-900'
-              }`}
-            >
-              <History className="w-3.5 h-3.5" />
-              <span>History</span>
-            </button>
+            {can('report.view') && (
+              <button
+                onClick={() => setActiveTab('HISTORY')}
+                className={`flex items-center gap-1.5 px-2.5 lg:px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                  activeTab === 'HISTORY'
+                    ? 'bg-brand text-white shadow-2xs'
+                    : 'text-slate-600 dark:text-slate-300 hover:text-slate-900'
+                }`}
+              >
+                <History className="w-3.5 h-3.5" />
+                <span>History</span>
+              </button>
+            )}
 
-            <button
-              onClick={() => setActiveTab('SETTINGS')}
-              className={`flex items-center gap-1.5 px-2.5 lg:px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                activeTab === 'SETTINGS'
-                  ? 'bg-brand text-white shadow-2xs'
-                  : 'text-slate-600 dark:text-slate-300 hover:text-slate-900'
-              }`}
-            >
-              <Settings className="w-3.5 h-3.5" />
-              <span>Settings</span>
-            </button>
+            {(can('staff.manage') || can('device.manage')) && (
+              <button
+                onClick={() => setActiveTab('SETTINGS')}
+                className={`flex items-center gap-1.5 px-2.5 lg:px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                  activeTab === 'SETTINGS'
+                    ? 'bg-brand text-white shadow-2xs'
+                    : 'text-slate-600 dark:text-slate-300 hover:text-slate-900'
+                }`}
+              >
+                <Settings className="w-3.5 h-3.5" />
+                <span>Settings</span>
+              </button>
+            )}
           </nav>
+
+          {/* Install App / Android APK Button */}
+          <button
+            onClick={triggerInstallPrompt}
+            title="Install Aura Cafe as Android / Desktop Standalone App"
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-semibold bg-emerald-50 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 transition-all shadow-2xs shrink-0"
+          >
+            <Download className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+            <span className="hidden sm:inline">Install App</span>
+          </button>
 
           {/* Theme Toggle */}
           <button
@@ -219,20 +253,39 @@ export const Header: React.FC = () => {
             {isDarkMode ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4" />}
           </button>
 
-          {/* Cashier Barista Lock */}
+          {/* Active Staff Member Profile & Quick Switch Chip */}
           <button
             onClick={lockTerminal}
-            title="Lock Barista Terminal"
-            className="flex items-center gap-1.5 sm:gap-2 pl-1.5 sm:pl-2 pr-2 sm:pr-2.5 py-1 sm:py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors border border-slate-200 dark:border-slate-700"
+            title="Active Staff Member • Click to Switch Staff or Lock"
+            className="flex items-center gap-1.5 sm:gap-2 pl-1.5 sm:pl-2 pr-2 sm:pr-2.5 py-1 sm:py-1.5 rounded-xl bg-teal-50 dark:bg-teal-950/60 text-teal-900 dark:text-teal-200 hover:bg-teal-100 dark:hover:bg-teal-900/60 transition-colors border border-teal-200 dark:border-teal-800/80 shadow-2xs"
           >
-            <div className="w-5 h-5 rounded-full bg-brand-light text-brand flex items-center justify-center font-bold text-[10px]">
-              ☕
+            <div className="w-6 h-6 rounded-lg bg-teal-600 text-white flex items-center justify-center font-bold text-xs">
+              {cashierName.charAt(0).toUpperCase()}
             </div>
-            <span className="text-xs font-semibold hidden sm:inline">{cashierName}</span>
-            <Lock className="w-3 h-3 text-slate-400" />
+            <div className="flex flex-col text-left hidden sm:flex">
+              <span className="text-xs font-bold leading-tight">
+                {cashierName}
+              </span>
+              <span className="text-[10px] text-teal-600 dark:text-teal-400 uppercase font-semibold leading-tight">
+                {currentRole || 'Staff'} • Switch PIN
+              </span>
+            </div>
+            <Lock className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400 ml-1" />
+          </button>
+
+          {/* Business & Cloud Settings Button */}
+          <button
+            onClick={() => setShowAuthModal(true)}
+            title="Business Setup & Cloud Authentication"
+            className="w-8 h-8 rounded-xl flex items-center justify-center text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors border border-slate-200 dark:border-slate-700/80"
+          >
+            <ShieldCheck className="w-4 h-4 text-slate-500" />
           </button>
         </div>
       </div>
+
+      {/* Cloud Authentication & Multi-Tenant Onboarding Modal */}
+      <AuthModal isOpen={showAuthModal} onClose={() => setShowAuthModal(false)} />
     </header>
   );
 };
