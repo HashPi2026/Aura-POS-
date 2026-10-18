@@ -266,6 +266,11 @@ export const usePosStore = create<PosState>((set, get) => ({
     const savedColorTheme = (localStorage.getItem('aura_color_theme') as ColorTheme) || 'teal';
     document.documentElement.setAttribute('data-theme', savedColorTheme);
 
+    // Read live business & user info from auth store instead of using static values
+    const authState = useAuthStore.getState();
+    const biz = authState.currentBusiness;
+    const authUser = authState.user;
+
     set({
       products,
       tables,
@@ -275,6 +280,24 @@ export const usePosStore = create<PosState>((set, get) => ({
       unsyncedCount: unsynced.length,
       isDarkMode: isDark,
       colorTheme: savedColorTheme,
+      // Dynamic business fields — fall back to existing defaults if not yet loaded
+      storeName: biz?.name || get().storeName,
+      storeAddress: biz?.address || get().storeAddress,
+      storeGstin: biz?.tax_identifier || get().storeGstin,
+      cashierName: authUser?.fullName || get().cashierName,
+    });
+
+    // Keep POS store in sync whenever the auth store changes
+    // (e.g. after staff PIN login, owner sign-in, or standalone mode activation)
+    useAuthStore.subscribe((auth) => {
+      const b = auth.currentBusiness;
+      const u = auth.user;
+      set({
+        storeName: b?.name || get().storeName,
+        storeAddress: b?.address || get().storeAddress,
+        storeGstin: b?.tax_identifier || get().storeGstin,
+        cashierName: u?.fullName || get().cashierName,
+      });
     });
 
     // Start background sync service worker (checks stable connection & periodic retry)
@@ -555,6 +578,26 @@ export const usePosStore = create<PosState>((set, get) => ({
     }
 
     return { success: false, error: res.error || 'Could not log in' };
+  },
+
+  quickUnlockStaff: async (roleOrUserId) => {
+    const businessId = useAuthStore.getState().currentBusiness?.id || '00000000-0000-0000-0000-000000000001';
+    const res = await staffPinService.quickLogin(businessId, roleOrUserId);
+    if (res.success && res.member) {
+      const { member } = res;
+      set({
+        isLocked: false,
+        cashierName: member.fullName,
+      });
+      useAuthStore.getState().setUserFromPin(member);
+      if (member.role === 'kitchen') {
+        set({ activeTab: 'KOT' });
+      } else {
+        set({ activeTab: 'CHECKOUT' });
+      }
+      return { success: true, member };
+    }
+    return { success: false, error: res.error || 'Could not quick-login' };
   },
 
   lockTerminal: () => set({ isLocked: true, activeTab: 'CHECKOUT' }),
