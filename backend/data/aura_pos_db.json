@@ -1,0 +1,263 @@
+{
+  "business": {
+    "id": "11111111-1111-1111-1111-111111111111",
+    "name": "Spice Cafe",
+    "businessType": "cafe",
+    "taxIdentifier": "29AABCS1234F1Z8",
+    "address": "100ft Road, Indiranagar, Bengaluru, Karnataka",
+    "phone": "+91 80 4123 5678",
+    "currency": "INR",
+    "timezone": "Asia/Kolkata",
+    "taxRate": 5
+  },
+  "staff": [
+    {
+      "id": "22222222-2222-2222-2222-222222222222",
+      "userId": "22222222-2222-2222-2222-222222222222",
+      "fullName": "Rahul Patel",
+      "email": "spicecafe@gmail.com",
+      "role": "owner",
+      "pin": "1111",
+      "isActive": true
+    },
+    {
+      "id": "22222222-2222-2222-2222-222222222223",
+      "userId": "22222222-2222-2222-2222-222222222223",
+      "fullName": "Priya Cashier",
+      "email": "priya.cashier@spicecafe.com",
+      "role": "cashier",
+      "pin": "1234",
+      "isActive": true
+    },
+    {
+      "id": "22222222-2222-2222-2222-222222222224",
+      "userId": "22222222-2222-2222-2222-222222222224",
+      "fullName": "Vikram Server",
+      "email": "vikram.waiter@spicecafe.com",
+      "role": "waiter",
+      "pin": "2222",
+      "isActive": true
+    },
+    {
+      "id": "22222222-2222-2222-2222-222222222225",
+      "userId": "22222222-2222-2222-2222-222222222225",
+      "fullName": "Chef Anand",
+      "email": "chef.anand@spicecafe.com",
+      "role": "kitchen",
+      "pin": "3333",
+      "isActive": true
+    }
+  ],
+  "products": [
+    {
+      "id": "55555555-5555-5555-5555-555555550001",
+      "name": "Cardamom Spiced Cappuccino",
+      "category": "Coffee & Espresso",
+      "price": 190,
+      "description": "Double ristretto espresso, velvety textured milk infused with freshly crushed green cardamom",
+      "unit": "Cup (250 ml)",
+      "taxRate": 5,
+      "available": true
+    },
+    {
+      "id": "55555555-5555-5555-5555-555555550002",
+      "name": "Spice Signature Masala Chai Pot",
+      "category": "Tea & Refreshers",
+      "price": 130,
+      "description": "Slow-simmered Assam CTC tea leaves, fresh ginger, crushed green cardamom & cinnamon",
+      "unit": "Pot (Serves 2)",
+      "taxRate": 5,
+      "available": true
+    },
+    {
+      "id": "55555555-5555-5555-5555-555555550003",
+      "name": "Saffron Pistachio Cold Brew",
+      "category": "Coffee & Espresso",
+      "price": 240,
+      "description": "16-hour cold brew infused with Kashmiri saffron strands and roasted pistachio cream",
+      "unit": "Tall Glass",
+      "taxRate": 5,
+      "available": true
+    },
+    {
+      "id": "55555555-5555-5555-5555-555555550004",
+      "name": "Cinnamon Dark Roast Latte",
+      "category": "Coffee & Espresso",
+      "price": 210,
+      "description": "Espresso roast with steamed milk, Ceylon cinnamon syrup and nutmeg dusting",
+      "unit": "Cup (250 ml)",
+      "taxRate": 5,
+      "available": true
+    },
+    {
+      "id": "55555555-5555-5555-5555-555555550005",
+      "name": "Spiced Butter Croissant",
+      "category": "Bakery & Pastry",
+      "price": 150,
+      "description": "Flaky French butter croissant infused with warm Indian spice sugar glaze",
+      "unit": "1 Piece",
+      "taxRate": 5,
+      "available": true
+    },
+    {
+      "id": "55555555-5555-5555-5555-555555550006",
+      "name": "Peri Peri Paneer Sourdough Toast",
+      "category": "Cafe Bites",
+      "price": 270,
+      "description": "Artisan sourdough slice, spicy peri-peri cottage cheese cubes, charred bell peppers",
+      "unit": "Plate",
+      "taxRate": 5,
+      "available": true
+    },
+    {
+      "id": "55555555-5555-5555-5555-555555550007",
+      "name": "Masala Chai Tres Leches Slice",
+      "category": "Desserts & Shakes",
+      "price": 220,
+      "description": "Sponge cake soaked in spiced evaporated milk, condensed milk, and fresh cream",
+      "unit": "1 Slice",
+      "taxRate": 5,
+      "available": true
+    },
+    {
+      "id": "55555555-5555-5555-5555-555555550008",
+      "name": "Ginger Lemon Mint Fizz",
+      "category": "Tea & Refreshers",
+      "price": 140,
+      "description": "Hand-squeezed yellow lime juice, muddled fresh garden mint, spicy ginger juice and soda",
+      "unit": "Tall Glass",
+      "taxRate": 5,
+      "available": true
+    }
+  ],
+  "tables": [
+    { "id": "T1", "name": "Table 1", "area": "Indoor Spice Lounge", "seats": 2, "status": "AVAILABLE" },
+    { "id": "T2", "name": "Table 2", "area": "Indoor Spice Lounge", "seats": 4, "status": "OCCUPIED" },
+    { "id": "T3", "name": "Table 3", "area": "Indoor Spice Lounge", "seats": 4, "status": "AVAILABLE" },
+    { "id": "T4", "name": "Table 4 (Booth)", "area": "Indoor Spice Lounge", "seats": 6, "status": "AVAILABLE" },
+    { "id": "T5", "name": "Patio P1", "area": "Alfresco Garden", "seats": 2, "status": "AVAILABLE" },
+    { "id": "T6", "name": "Patio P2", "area": "Alfresco Garden", "seats": 4, "status": "AVAILABLE" },
+    { "id": "T7", "name": "Roastery Bar B1", "area": "Live Brew Counter", "seats": 1, "status": "AVAILABLE" },
+    { "id": "T8", "name": "Roastery Bar B2", "area": "Live Brew Counter", "seats": 1, "status": "AVAILABLE" }
+  ],
+  "sales": [
+    {
+      "id": "66666666-6666-6666-6666-666666660004",
+      "receiptNumber": "SPC-2026-1004",
+      "timestamp": 1792235100000,
+      "cashierName": "Priya Cashier",
+      "counterName": "Spice Counter 1",
+      "orderType": "DINE_IN",
+      "tableName": "Table 4 (Booth)",
+      "items": [
+        { "productId": "55555555-5555-5555-5555-555555550004", "name": "Cinnamon Dark Roast Latte", "price": 210, "quantity": 2 },
+        { "productId": "55555555-5555-5555-5555-555555550006", "name": "Peri Peri Paneer Sourdough Toast", "price": 270, "quantity": 2 },
+        { "productId": "55555555-5555-5555-5555-555555550008", "name": "Ginger Lemon Mint Fizz", "price": 140, "quantity": 2 }
+      ],
+      "itemCount": 6,
+      "subtotal": 1240,
+      "cgst": 31,
+      "sgst": 31,
+      "totalGst": 62,
+      "roundOff": 0,
+      "totalAmount": 1302,
+      "paymentMethod": "UPI",
+      "amountTendered": 1302,
+      "changeDue": 0,
+      "upiRef": "UPI90123847",
+      "syncStatus": "SYNCED",
+      "syncedAt": 1792235100000
+    },
+    {
+      "id": "66666666-6666-6666-6666-666666660003",
+      "receiptNumber": "SPC-2026-1003",
+      "timestamp": 1792233900000,
+      "cashierName": "Rahul Patel",
+      "counterName": "Spice Counter 1",
+      "orderType": "TAKEAWAY",
+      "tableName": null,
+      "items": [
+        { "productId": "55555555-5555-5555-5555-555555550002", "name": "Spice Signature Masala Chai Pot", "price": 130, "quantity": 1 },
+        { "productId": "55555555-5555-5555-5555-555555550007", "name": "Masala Chai Tres Leches Slice", "price": 220, "quantity": 1 }
+      ],
+      "itemCount": 2,
+      "subtotal": 350,
+      "cgst": 8.75,
+      "sgst": 8.75,
+      "totalGst": 17.5,
+      "roundOff": 0.5,
+      "totalAmount": 368,
+      "paymentMethod": "CASH",
+      "amountTendered": 400,
+      "changeDue": 32,
+      "syncStatus": "SYNCED",
+      "syncedAt": 1792233900000
+    },
+    {
+      "id": "66666666-6666-6666-6666-666666660002",
+      "receiptNumber": "SPC-2026-1002",
+      "timestamp": 1792232100000,
+      "cashierName": "Priya Cashier",
+      "counterName": "Spice Counter 1",
+      "orderType": "DINE_IN",
+      "tableName": "Patio P2",
+      "items": [
+        { "productId": "55555555-5555-5555-5555-555555550003", "name": "Saffron Pistachio Cold Brew", "price": 240, "quantity": 1 },
+        { "productId": "55555555-5555-5555-5555-555555550006", "name": "Peri Peri Paneer Sourdough Toast", "price": 270, "quantity": 1 }
+      ],
+      "itemCount": 2,
+      "subtotal": 510,
+      "cgst": 12.75,
+      "sgst": 12.75,
+      "totalGst": 25.5,
+      "roundOff": 0.5,
+      "totalAmount": 536,
+      "paymentMethod": "CARD",
+      "amountTendered": 536,
+      "changeDue": 0,
+      "syncStatus": "SYNCED",
+      "syncedAt": 1792232100000
+    },
+    {
+      "id": "66666666-6666-6666-6666-666666660001",
+      "receiptNumber": "SPC-2026-1001",
+      "timestamp": 1792229400000,
+      "cashierName": "Rahul Patel",
+      "counterName": "Spice Counter 1",
+      "orderType": "DINE_IN",
+      "tableName": "Table 1",
+      "items": [
+        { "productId": "55555555-5555-5555-5555-555555550001", "name": "Cardamom Spiced Cappuccino", "price": 190, "quantity": 2 },
+        { "productId": "55555555-5555-5555-5555-555555550005", "name": "Spiced Butter Croissant", "price": 150, "quantity": 2 }
+      ],
+      "itemCount": 4,
+      "subtotal": 680,
+      "cgst": 17,
+      "sgst": 17,
+      "totalGst": 34,
+      "roundOff": 0,
+      "totalAmount": 714,
+      "paymentMethod": "UPI",
+      "amountTendered": 714,
+      "changeDue": 0,
+      "upiRef": "UPI88921045",
+      "syncStatus": "SYNCED",
+      "syncedAt": 1792229400000
+    }
+  ],
+  "kots": [
+    {
+      "id": "kot_1005",
+      "kotNumber": "KOT-#1005",
+      "timestamp": 1792235400000,
+      "tableName": "Table 2",
+      "orderType": "DINE_IN",
+      "items": [
+        { "productId": "55555555-5555-5555-5555-555555550001", "name": "Cardamom Spiced Cappuccino", "quantity": 2, "notes": "Oat milk, extra cardamom sprinkle" },
+        { "productId": "55555555-5555-5555-5555-555555550005", "name": "Spiced Butter Croissant", "quantity": 1, "notes": "Warmed up crisp" }
+      ],
+      "status": "PREPARING",
+      "specialInstructions": "Spice Chef Special: Table 2 VIP"
+    }
+  ]
+}

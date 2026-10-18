@@ -1,4 +1,4 @@
-import { supabase, isSupabaseConfigured } from '../lib/supabase';
+import { restApi } from '../api/restClient';
 import { UserRole } from '../types/database';
 
 export interface StaffPinMember {
@@ -110,22 +110,17 @@ class StaffPinService {
       }
     }
 
-    // If online with valid session, attempt to refresh staff names from business_members
-    if (isSupabaseConfigured() && typeof navigator !== 'undefined' && navigator.onLine) {
+    // Query staff list from REST API backend
+    if (typeof navigator !== 'undefined' && navigator.onLine) {
       try {
-        const { data, error } = await supabase
-          .from('business_members')
-          .select('id, user_id, role, full_name, is_active')
-          .eq('business_id', businessId)
-          .eq('is_active', true);
-
-        if (!error && data && data.length > 0) {
-          const remoteList: StaffPinMember[] = data.map((remote) => {
-            const existing = cachedList.find((c) => c.userId === remote.user_id);
+        const { staff } = await restApi.business.getStaff();
+        if (staff && staff.length > 0) {
+          const remoteList: StaffPinMember[] = staff.map((remote) => {
+            const existing = cachedList.find((c) => c.userId === remote.userId || c.userId === remote.id);
             return {
               id: remote.id,
-              userId: remote.user_id,
-              fullName: remote.full_name || 'Staff Member',
+              userId: remote.userId || remote.id,
+              fullName: remote.fullName || 'Staff Member',
               role: remote.role as UserRole,
               saltHex: existing?.saltHex,
               hashHex: existing?.hashHex,
@@ -193,21 +188,7 @@ class StaffPinService {
     );
     this.saveStaffList(businessId, updated);
 
-    // Online update if Supabase available and user is authenticated
-    if (isSupabaseConfigured() && typeof navigator !== 'undefined' && navigator.onLine) {
-      try {
-        const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-        if (UUID_REGEX.test(userId) && UUID_REGEX.test(businessId)) {
-          await (supabase.rpc as any)('set_staff_pin', {
-            p_business_id: businessId,
-            p_user_id: userId,
-            p_pin: pin,
-          });
-        }
-      } catch (err: any) {
-        console.warn('Could not sync PIN to server, cached offline:', err.message);
-      }
-    }
+
 
     return { success: true };
   }

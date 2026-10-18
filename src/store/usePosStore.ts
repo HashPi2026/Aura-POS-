@@ -27,7 +27,7 @@ import {
   getUnsyncedSales,
   updateSaleSyncStatus,
 } from '../db/indexedDb';
-import { mockServer } from '../api/mockServer';
+import { restApi } from '../api/restClient';
 import { ColorTheme } from '../utils/themePresets';
 import { backgroundSyncService } from '../services/BackgroundSyncService';
 import { staffPinService } from '../services/staffPinService';
@@ -541,50 +541,8 @@ export const usePosStore = create<PosState>((set, get) => ({
         cashierName: member.fullName,
       });
 
-      // Ensure session is marked active and standalone mode enabled if not logged in via cloud
-      useAuthStore.setState({
-        currentRole: member.role,
-        isStandaloneMode: true,
-      });
-      if (typeof localStorage !== 'undefined') {
-        localStorage.setItem('aura_cached_role', member.role);
-        localStorage.setItem('aura_standalone_mode', 'true');
-      }
-
-      // Always navigate to the Order home page on login/switch (or KOT for dedicated kitchen staff)
-      if (member.role === 'kitchen') {
-        set({ activeTab: 'KOT' });
-      } else {
-        set({ activeTab: 'CHECKOUT' });
-      }
-
-      return { success: true, member };
-    }
-
-    return {
-      success: false,
-      error: res.error || 'Incorrect PIN',
-    };
-  },
-
-  quickUnlockStaff: async (roleOrUserId) => {
-    const businessId = useAuthStore.getState().currentBusiness?.id || '00000000-0000-0000-0000-000000000001';
-    const res = await staffPinService.quickLogin(businessId, roleOrUserId);
-    if (res.success && res.member) {
-      const { member } = res;
-      set({
-        isLocked: false,
-        cashierName: member.fullName,
-      });
-
-      useAuthStore.setState({
-        currentRole: member.role,
-        isStandaloneMode: true,
-      });
-      if (typeof localStorage !== 'undefined') {
-        localStorage.setItem('aura_cached_role', member.role);
-        localStorage.setItem('aura_standalone_mode', 'true');
-      }
+      // Ensure user session is marked active with staff member details
+      useAuthStore.getState().setUserFromPin(member);
 
       // Always navigate to the Order home page on login/switch (or KOT for dedicated kitchen staff)
       if (member.role === 'kitchen') {
@@ -808,6 +766,18 @@ export const usePosStore = create<PosState>((set, get) => ({
       syncAttempts: 0,
     };
 
+    if (state.isOnline) {
+      try {
+        const syncRes = await restApi.sales.sync(newSale);
+        if (syncRes && syncRes.success) {
+          newSale.syncStatus = 'SYNCED';
+          newSale.syncedAt = Date.now();
+        }
+      } catch (_) {
+        // Keeps SAVED_OFFLINE for background queue retry
+      }
+    }
+
     if (state.selectedTable) {
       await state.vacateTable(state.selectedTable.id);
     }
@@ -876,8 +846,7 @@ export const usePosStore = create<PosState>((set, get) => ({
   toggleServerFailure: () => {
     const next = !get().simulateServerFailure;
     set({ simulateServerFailure: next });
-    mockServer.setSimulateError(next);
-    get().showBanner(next ? 'Server failure simulation ENABLED' : 'Server failure simulation DISABLED');
+    get().showBanner(next ? 'Server simulation toggled' : 'Server simulation normal');
   },
 
   refreshSales: async () => {
@@ -916,13 +885,13 @@ export const usePosStore = create<PosState>((set, get) => ({
 
     await updateSaleSyncStatus(sale.id, 'SYNCING');
     try {
-      const res = await mockServer.syncSale(sale);
-      if (res.success) {
+      const res = await restApi.sales.sync(sale);
+      if (res && res.success) {
         await updateSaleSyncStatus(sale.id, 'SYNCED');
-        get().showBanner(`Receipt ${sale.receiptNumber} synced!`);
+        get().showBanner(`Receipt ${sale.receiptNumber} synced with cloud!`);
       } else {
-        await updateSaleSyncStatus(sale.id, 'FAILED', res.error || 'Server error');
-        get().showBanner(`Sync failed: ${res.error}`);
+        await updateSaleSyncStatus(sale.id, 'FAILED', res?.error || 'Server error');
+        get().showBanner(`Sync failed: ${res?.error}`);
       }
     } catch (err: any) {
       await updateSaleSyncStatus(sale.id, 'FAILED', err.message);

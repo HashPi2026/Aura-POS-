@@ -1,8 +1,5 @@
-import { Sale, getUnsyncedSales, updateSaleSyncStatus, getAllSales } from '../db/indexedDb';
-import { supabase, isSupabaseConfigured } from '../lib/supabase';
-import { useAuthStore } from '../store/useAuthStore';
-import { getDeviceId } from '../utils/device';
-import { mockServer } from '../api/mockServer';
+import { Sale, getUnsyncedSales, updateSaleSyncStatus } from '../db/indexedDb';
+import { restApi } from '../api/restClient';
 
 export type SyncState = 'IDLE' | 'CHECKING_CONNECTION' | 'SYNCING' | 'OFFLINE' | 'STABLE_ONLINE';
 
@@ -42,7 +39,7 @@ class BackgroundSyncServiceImpl {
    * Starts the background sync service worker.
    * Runs an immediate check and establishes periodic polling.
    */
-  public start(pollIntervalMs: number = 25000): void {
+  public start(pollIntervalMs: number = 10000): void {
     if (this.intervalTimer) return;
 
     this.checkNetworkAndSync();
@@ -51,7 +48,6 @@ class BackgroundSyncServiceImpl {
       this.checkNetworkAndSync();
     }, pollIntervalMs);
 
-    // Register PWA Service Worker Background Sync if available
     this.registerServiceWorkerSync();
   }
 
@@ -87,7 +83,7 @@ class BackgroundSyncServiceImpl {
   }
 
   /**
-   * Actively tests real HTTP connectivity to ensure the device is not behind a captive portal.
+   * Actively tests real HTTP connectivity to the REST API backend.
    */
   public async isNetworkStable(): Promise<boolean> {
     if (typeof navigator !== 'undefined' && !navigator.onLine) {
@@ -98,19 +94,24 @@ class BackgroundSyncServiceImpl {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 3500);
 
-      // Probe a small static asset with no-cache to test end-to-end packet transit
-      const probeUrl = `${window.location.origin}/favicon.ico?_ping=${Date.now()}`;
-      const response = await fetch(probeUrl, {
-        method: 'HEAD',
+      // Probe backend /api/health
+      const response = await fetch('/api/health', {
+        method: 'GET',
         cache: 'no-store',
         signal: controller.signal,
       });
 
       clearTimeout(timeoutId);
-      return response.ok || response.status === 304;
+      return response.ok;
     } catch (_) {
-      // If probe times out or fails, network is unstable/offline
-      return false;
+      // Fallback probe
+      try {
+        const probeUrl = `${window.location.origin}/favicon.ico?_ping=${Date.now()}`;
+        const res = await fetch(probeUrl, { method: 'HEAD', cache: 'no-store' });
+        return res.ok || res.status === 304;
+      } catch {
+        return false;
+      }
     }
   }
 
@@ -140,7 +141,7 @@ class BackgroundSyncServiceImpl {
   }
 
   /**
-   * Trigger an immediate sync run.
+   * Trigger an immediate sync run across all unsynced sales.
    */
   public async triggerSync(): Promise<{ synced: number; failed: number }> {
     if (this.isProcessing) {
@@ -152,7 +153,7 @@ class BackgroundSyncServiceImpl {
     let failedCount = 0;
 
     try {
-      // 1. Check network stability first
+      // 1. Check network stability
       const isStable = await this.isNetworkStable();
       this.statusInfo.isStable = isStable;
       if (!isStable) {
@@ -175,11 +176,10 @@ class BackgroundSyncServiceImpl {
       this.statusInfo.state = 'SYNCING';
       this.notify();
 
-      // Sort FIFO by timestamp (oldest first to preserve invoice order)
+      // Sort FIFO by timestamp (oldest first to preserve chronological invoicing)
       const sortedQueue = [...pendingSales].sort((a, b) => a.timestamp - b.timestamp);
 
       for (const sale of sortedQueue) {
-        // Mark as SYNCING in IndexedDB
         await updateSaleSyncStatus(sale.id, 'SYNCING');
 
         try {
@@ -193,23 +193,19 @@ class BackgroundSyncServiceImpl {
           } else {
             failedCount += 1;
             const errMsg = syncResult.error || 'Server rejected sale';
-            const newStatus = errMsg === 'Waiting for login' ? 'SAVED_OFFLINE' : 'FAILED';
-            await updateSaleSyncStatus(sale.id, newStatus, errMsg);
+            await updateSaleSyncStatus(sale.id, 'SAVED_OFFLINE', errMsg);
             this.statusInfo.lastError = errMsg;
-            // Stop on rejection to preserve chronological batch ordering
             break;
           }
         } catch (err: any) {
           failedCount += 1;
-          const errMsg = err.message || 'Network error during upload';
-          await updateSaleSyncStatus(sale.id, 'FAILED', errMsg);
+          const errMsg = err.message || 'Network upload error';
+          await updateSaleSyncStatus(sale.id, 'SAVED_OFFLINE', errMsg);
           this.statusInfo.lastError = errMsg;
-          // Break on connection drop; backoff will retry on next cycle
           break;
         }
       }
     } finally {
-      // Update pending count from DB
       const remaining = await getUnsyncedSales();
       this.statusInfo.pendingCount = remaining.length;
       this.statusInfo.state = this.statusInfo.isStable ? 'IDLE' : 'OFFLINE';
@@ -221,83 +217,18 @@ class BackgroundSyncServiceImpl {
   }
 
   /**
-   * Uploads a single sale to the configured cloud backend (Supabase RPC).
-   * Strictly enforces business_id, device_id, and per-line taxes.
+   * Uploads a single sale to the REST API backend.
    */
   private async uploadSale(sale: Sale): Promise<{ success: boolean; error?: string }> {
-    const authState = useAuthStore.getState();
-    const currentBusiness = authState.currentBusiness;
-    const user = authState.user;
-
-    // Requirement: When there is no authenticated session or no business,
-    // do NOT fall back to mockServer and mark the sale synced. Keep the sale queued with status "Waiting for login".
-    if (!user || !currentBusiness || !currentBusiness.id) {
-      return {
-        success: false,
-        error: 'Waiting for login',
-      };
-    }
-
-    if (isSupabaseConfigured()) {
-      try {
-        const deviceId = getDeviceId();
-        const defaultTaxRate = 5.0; // Standard 5% Cafe GST
-
-        const { data, error } = await supabase.rpc('sync_sale', {
-          p_sale: {
-            id: sale.id,
-            business_id: currentBusiness.id,
-            device_id: deviceId,
-            receipt_number: sale.receiptNumber,
-            order_type: sale.orderType || 'DINE_IN',
-            table_name: sale.tableName || null,
-            subtotal: sale.subtotal,
-            tax_amount: sale.totalGst,
-            round_off: sale.roundOff || 0,
-            total_amount: sale.totalAmount,
-            client_timestamp: new Date(sale.timestamp).toISOString(),
-            cashier_name: sale.cashierName,
-            items: sale.items.map((it) => {
-              const lineSubtotal = Math.round(it.price * it.quantity * 100) / 100;
-              const lineTax = Math.round(lineSubtotal * (defaultTaxRate / 100) * 100) / 100;
-              return {
-                product_id: it.productId,
-                product_name: it.name,
-                quantity: it.quantity,
-                unit_price: it.price,
-                tax_rate: defaultTaxRate,
-                tax_amount: lineTax,
-                discount_amount: 0,
-                total_amount: lineSubtotal + lineTax,
-              };
-            }),
-            payments: [
-              {
-                payment_method: sale.paymentMethod || 'CASH',
-                amount: sale.totalAmount,
-                tendered_amount: sale.amountTendered || sale.totalAmount,
-                change_due: sale.changeDue || 0,
-                reference_id: sale.upiRef || null,
-                status: 'PENDING', // Requirement: Always store as PENDING, never client VERIFIED
-              },
-            ],
-          },
-        });
-
-        if (error) {
-          return { success: false, error: error.message };
-        }
-
-        if (data && (data as any).success) {
-          return { success: true };
-        }
-        return { success: false, error: (data as any)?.error || 'RPC validation failed' };
-      } catch (err: any) {
-        return { success: false, error: err.message || 'Network upload error' };
+    try {
+      const result = await restApi.sales.sync(sale);
+      if (result && result.success) {
+        return { success: true };
       }
+      return { success: false, error: result?.error || 'REST backend sync failed' };
+    } catch (err: any) {
+      return { success: false, error: err.message || 'REST API network error' };
     }
-
-    return { success: false, error: 'Waiting for login' };
   }
 
   private async checkNetworkAndSync(): Promise<void> {
@@ -313,9 +244,6 @@ class BackgroundSyncServiceImpl {
     }
   }
 
-  /**
-   * Registers PWA Service Worker background sync if supported by browser.
-   */
   private async registerServiceWorkerSync(): Promise<void> {
     if (typeof window !== 'undefined' && 'serviceWorker' in navigator && 'SyncManager' in window) {
       try {
@@ -323,9 +251,7 @@ class BackgroundSyncServiceImpl {
         if ('sync' in registration) {
           await (registration as any).sync.register('sync-offline-sales');
         }
-      } catch (_) {
-        // Background sync API not supported or permission denied; periodic worker continues
-      }
+      } catch (_) {}
     }
   }
 
