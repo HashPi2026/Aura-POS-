@@ -4,7 +4,7 @@ import fs from 'fs';
 import path from 'path';
 
 const { Client } = pg;
-const connectionString = 'postgresql://postgres:FJm9J64qEHKOL8TA@db.hwdxpvmypxnpfiamcmvs.supabase.co:5432/postgres';
+const connectionString = 'postgresql://postgres.hwdxpvmypxnpfiamcmvs:FJm9J64qEHKOL8TA@aws-0-ap-south-1.pooler.supabase.com:5432/postgres';
 
 function hashPassword(password) {
   // SHA-256 with salt or standard digest

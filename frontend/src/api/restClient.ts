@@ -99,7 +99,7 @@ export const restApi = {
         body: JSON.stringify(sale),
       }),
     sync: (saleOrSales: any) =>
-      fetchJson<{ success: boolean; synced: number; duplicates: number; message: string; sales: any[] }>(
+      fetchJson<{ success: boolean; synced: number; duplicates: number; message: string; sales: any[]; error?: string }>(
         '/sales/sync',
         {
           method: 'POST',

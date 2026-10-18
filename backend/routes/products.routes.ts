@@ -32,7 +32,8 @@ router.post('/', (req: Request, res: Response) => {
 
 // DELETE /api/products/:id - Delete item
 router.delete('/:id', (req: Request, res: Response) => {
-  const ok = db.deleteProduct(req.params.id);
+  const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+  const ok = db.deleteProduct(id);
   if (ok) {
     res.json({ success: true, message: 'Product deleted' });
   } else {

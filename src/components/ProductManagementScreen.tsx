@@ -103,15 +103,15 @@ export const ProductManagementScreen: React.FC = () => {
   }, [products, selectedCat, search]);
 
   return (
-    <div className="flex-1 overflow-y-auto p-3 sm:p-5 bg-slate-100 dark:bg-slate-950 flex flex-col gap-4 max-w-7xl mx-auto w-full">
+    <div className="flex-1 overflow-y-auto p-2.5 sm:p-3.5 bg-slate-100 dark:bg-slate-950 flex flex-col gap-2.5 sm:gap-3 max-w-7xl mx-auto w-full">
       {/* Header Bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 bg-white dark:bg-slate-900 p-2.5 sm:p-3 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xs">
         <div>
-          <h2 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
-            <Coffee className="w-5 h-5 text-brand" />
+          <h2 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+            <Coffee className="w-4 h-4 sm:w-5 sm:h-5 text-brand" />
             <span>Cafe Menu & Price Management</span>
           </h2>
-          <p className="text-xs text-slate-500">
+          <p className="text-[11px] sm:text-xs text-slate-500">
             Manage specialty coffees, roasts, pastries, toasts, and seasonal drinks
           </p>
         </div>
@@ -120,18 +120,18 @@ export const ProductManagementScreen: React.FC = () => {
           <button
             onClick={resetDemoCatalog}
             title="Restore all default cafe beverages & bakery items"
-            className="h-10 px-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 flex items-center gap-1.5 transition-colors"
+            className="h-8 sm:h-9 px-2.5 sm:px-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 flex items-center gap-1.5 transition-colors"
           >
             <RotateCcw className="w-3.5 h-3.5" />
-            <span>Reset 30 Cafe Items</span>
+            <span>Reset Menu</span>
           </button>
 
           <button
             onClick={openAddModal}
-            className="h-10 px-4 rounded-xl bg-brand hover:bg-brand-hover text-white text-xs font-bold flex items-center gap-2 shadow-xs transition-all active:scale-[0.98]"
+            className="h-8 sm:h-9 px-3 sm:px-3.5 rounded-lg bg-brand hover:bg-brand-hover text-white text-xs font-bold flex items-center gap-1.5 shadow-xs transition-all active:scale-[0.98]"
           >
             <Plus className="w-4 h-4" />
-            <span>Add Menu Item</span>
+            <span>Add Item</span>
           </button>
         </div>
       </div>

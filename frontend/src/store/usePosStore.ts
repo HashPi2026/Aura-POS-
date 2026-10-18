@@ -26,6 +26,9 @@ import {
   getAllSales,
   getUnsyncedSales,
   updateSaleSyncStatus,
+  replaceAllProducts,
+  mergeRemoteSales,
+  getDb,
 } from '../db/indexedDb';
 import { restApi } from '../api/restClient';
 import { ColorTheme } from '../utils/themePresets';
@@ -160,6 +163,7 @@ interface PosState {
   drainSyncQueue: () => Promise<void>;
   refreshSales: () => Promise<void>;
   retrySingleSale: (saleId: string) => Promise<void>;
+  refreshCatalogFromCloud: () => Promise<void>;
   showBanner: (msg: string) => void;
   dismissBanner: () => void;
 }
@@ -192,11 +196,11 @@ export const usePosStore = create<PosState>((set, get) => ({
   activeKotModal: null,
 
   isLocked: false,
-  cashierName: 'Barista Ramesh',
+  cashierName: 'Rahul Patel',
   counterName: 'Espresso Bar 1',
-  storeName: 'Aura Cafe & Roastery',
-  storeAddress: '12th Main, Indiranagar Coffee Street, Bengaluru',
-  storeGstin: '29AAAAA0000A1Z5',
+  storeName: 'Spice Cafe',
+  storeAddress: '100ft Road, Indiranagar, Bengaluru, Karnataka',
+  storeGstin: '29AABCS1234F1Z8',
 
   activeTab: 'CHECKOUT',
   isDarkMode: false,
@@ -309,6 +313,95 @@ export const usePosStore = create<PosState>((set, get) => ({
       });
       get().refreshSales();
     });
+
+    // Automatically synchronize live products, tables, and store info from database
+    get().refreshCatalogFromCloud();
+  },
+
+  refreshCatalogFromCloud: async () => {
+    try {
+      // 1. Fetch live products from backend
+      const prodRes = await restApi.products.getAll();
+      if (prodRes && prodRes.success && Array.isArray(prodRes.products) && prodRes.products.length > 0) {
+        const liveProducts: Product[] = prodRes.products.map((p: any) => ({
+          id: p.id,
+          name: p.name,
+          category: p.category,
+          price: Number(p.price) || 0,
+          barcode: p.barcode || (p.id || '').slice(-6).toUpperCase(),
+          stock: p.stock ?? 100,
+          unit: p.unit || 'Unit',
+          isVeg: p.category !== 'Bakery & Pastry' || !p.name.toLowerCase().includes('ham'),
+        }));
+        await replaceAllProducts(liveProducts);
+        set({ products: liveProducts });
+      }
+    } catch (err) {
+      console.warn('Could not fetch live products:', err);
+    }
+
+    try {
+      // 2. Fetch live tables from backend
+      const tableRes = await restApi.tables.getAll();
+      if (tableRes && tableRes.success && Array.isArray(tableRes.tables) && tableRes.tables.length > 0) {
+        const liveTables: RestaurantTable[] = tableRes.tables.map((t: any) => ({
+          id: t.id,
+          name: t.name,
+          area: (t.area?.includes('Bar') ? 'Coffee Bar' : t.area?.includes('Patio') ? 'Outdoor Garden Patio' : 'Indoor Lounge') as any,
+          capacity: t.seats || 2,
+          status: t.status === 'OCCUPIED' ? 'OCCUPIED' : t.status === 'BILLED' ? 'BILLED' : 'VACANT',
+          currentOrderId: t.currentOrderId,
+          guestCount: t.guestCount,
+        }));
+        set({ tables: liveTables });
+      }
+    } catch (err) {
+      console.warn('Could not fetch live tables:', err);
+    }
+
+    try {
+      // 3. Fetch live business profile
+      const bizRes = await restApi.business.get();
+      if (bizRes && bizRes.success && bizRes.business) {
+        const b = bizRes.business;
+        set({
+          storeName: b.name || get().storeName,
+          storeAddress: b.address || get().storeAddress,
+          storeGstin: b.taxIdentifier || b.tax_identifier || get().storeGstin,
+        });
+      }
+    } catch (err) {
+      console.warn('Could not fetch live business:', err);
+    }
+
+    try {
+      // 4. Fetch live sales history from backend and sync into IndexedDB
+      const salesRes = await restApi.sales.getAll();
+      if (salesRes && salesRes.success && Array.isArray(salesRes.sales) && salesRes.sales.length > 0) {
+        await mergeRemoteSales(salesRes.sales);
+        const allSales = await getAllSales();
+        const unsynced = await getUnsyncedSales();
+        set({ sales: allSales, unsyncedCount: unsynced.length });
+      }
+    } catch (err) {
+      console.warn('Could not fetch live sales:', err);
+    }
+
+    try {
+      // 5. Fetch live Kitchen Orders (KOT) from backend and sync into IndexedDB
+      const kotRes = await restApi.kot.getAll();
+      if (kotRes && kotRes.success && Array.isArray(kotRes.kots) && kotRes.kots.length > 0) {
+        const db = await getDb();
+        const tx = db.transaction('kotList', 'readwrite');
+        for (const k of kotRes.kots) {
+          await tx.store.put(k);
+        }
+        await tx.done;
+        set({ kots: kotRes.kots });
+      }
+    } catch (err) {
+      console.warn('Could not fetch live KOTs:', err);
+    }
   },
 
   setOrderType: (type: OrderType) => {

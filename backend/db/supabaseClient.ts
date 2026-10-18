@@ -3,7 +3,15 @@ import { SaleRecord } from './database';
 
 const { Pool } = pg;
 
-const connectionString = process.env.DATABASE_URL || 'postgresql://postgres:FJm9J64qEHKOL8TA@db.hwdxpvmypxnpfiamcmvs.supabase.co:5432/postgres';
+function getValidDatabaseUrl(): string {
+  const envUrl = process.env.DATABASE_URL || '';
+  if (envUrl && !envUrl.includes('db.hwdxpvmypxnpfiamcmvs.supabase.co')) {
+    return envUrl;
+  }
+  return 'postgresql://postgres.hwdxpvmypxnpfiamcmvs:FJm9J64qEHKOL8TA@aws-0-ap-south-1.pooler.supabase.com:5432/postgres';
+}
+
+const connectionString = getValidDatabaseUrl();
 
 let pool: pg.Pool | null = null;
 

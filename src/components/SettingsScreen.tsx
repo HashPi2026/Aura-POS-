@@ -24,7 +24,7 @@ import { usePosStore } from '../store/usePosStore';
 import { useAuthStore } from '../store/useAuthStore';
 import { ThemeSelector } from './ThemeSelector';
 import { AuthModal } from './AuthModal';
-import { BusinessType } from '../db/indexedDb';
+import { BusinessType } from '../types/database';
 
 export const SettingsScreen: React.FC = () => {
   const [showAuthModal, setShowAuthModal] = useState(false);

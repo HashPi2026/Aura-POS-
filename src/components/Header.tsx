@@ -45,23 +45,29 @@ export const Header: React.FC = () => {
   } = usePosStore();
 
   return (
-    <header className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-3 sm:px-4 py-2 sm:py-2.5 shadow-xs sticky top-0 z-30 select-none">
+    <header className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-2.5 sm:px-4 py-1.5 sm:py-2 shadow-xs sticky top-0 z-30 select-none">
       <div className="flex items-center justify-between gap-2 sm:gap-4 max-w-7xl mx-auto w-full">
-        {/* Brand & Counter */}
-        <div className="flex items-center gap-2.5 sm:gap-3">
-          <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-brand text-white flex items-center justify-center font-black shadow-xs shrink-0">
-            <Coffee className="w-5 h-5 sm:w-6 sm:h-6" />
+        {/* Brand & Logged-In Business */}
+        <div className="flex items-center gap-2 sm:gap-2.5">
+          <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-brand text-white flex items-center justify-center font-black shadow-xs shrink-0">
+            <Coffee className="w-4 h-4 sm:w-5 sm:h-5" />
           </div>
           <div>
             <div className="flex items-center gap-1.5 sm:gap-2">
-              <span className="font-bold text-sm sm:text-base tracking-tight text-slate-900 dark:text-white">
-                Aura Cafe & Roastery
+              <span className="font-bold text-xs sm:text-sm tracking-tight text-slate-900 dark:text-white">
+                Aura POS
               </span>
-              <span className="px-1.5 sm:px-2 py-0.5 rounded text-[10px] sm:text-xs font-semibold bg-brand-light text-brand border border-brand-light">
-                {counterName}
+              <span
+                title="Active Logged-in Business"
+                className="px-2 py-0.5 rounded-md text-[10px] sm:text-xs font-bold bg-brand-light text-brand border border-brand-light/80 flex items-center gap-1 shadow-2xs"
+              >
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0 animate-pulse" />
+                <span className="max-w-[140px] sm:max-w-[200px] truncate">
+                  {currentBusiness?.name || (usePosStore.getState().storeName) || 'Spice Cafe'}
+                </span>
               </span>
             </div>
-            <p className="text-[10px] sm:text-[11px] text-slate-500 dark:text-slate-400 hidden xs:block">
+            <p className="text-[10px] text-slate-500 dark:text-slate-400 hidden xs:block">
               Specialty Coffee, Bakery & Bites • POS
             </p>
           </div>
@@ -129,11 +135,11 @@ export const Header: React.FC = () => {
         {/* Right: Desktop/Tablet Navigation Tabs, Theme Toggle, Cashier Profile */}
         <div className="flex items-center gap-1 sm:gap-2">
           {/* Desktop/Tablet Navigation Tabs (Filtered by Active Role Permissions) */}
-          <nav className="hidden md:flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl">
+          <nav className="hidden md:flex items-center gap-0.5 bg-slate-100 dark:bg-slate-800 p-0.5 rounded-lg">
             {can('order.create') && (
               <button
                 onClick={() => setActiveTab('CHECKOUT')}
-                className={`flex items-center gap-1.5 px-2.5 lg:px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                className={`flex items-center gap-1.5 px-2 lg:px-2.5 py-1 rounded-md text-xs font-semibold transition-all ${
                   activeTab === 'CHECKOUT'
                     ? 'bg-brand text-white shadow-2xs'
                     : 'text-slate-600 dark:text-slate-300 hover:text-slate-900'
@@ -147,7 +153,7 @@ export const Header: React.FC = () => {
             {can('order.create') && (
               <button
                 onClick={() => setActiveTab('TABLES')}
-                className={`flex items-center gap-1.5 px-2.5 lg:px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                className={`flex items-center gap-1.5 px-2 lg:px-2.5 py-1 rounded-md text-xs font-semibold transition-all ${
                   activeTab === 'TABLES'
                     ? 'bg-brand text-white shadow-2xs'
                     : 'text-slate-600 dark:text-slate-300 hover:text-slate-900'
@@ -161,7 +167,7 @@ export const Header: React.FC = () => {
             {(can('kitchen.update') || can('order.send_kitchen')) && (
               <button
                 onClick={() => setActiveTab('KOT')}
-                className={`flex items-center gap-1.5 px-2.5 lg:px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                className={`flex items-center gap-1.5 px-2 lg:px-2.5 py-1 rounded-md text-xs font-semibold transition-all ${
                   activeTab === 'KOT'
                     ? 'bg-brand text-white shadow-2xs'
                     : 'text-slate-600 dark:text-slate-300 hover:text-slate-900'
@@ -175,7 +181,7 @@ export const Header: React.FC = () => {
             {can('menu.edit') && (
               <button
                 onClick={() => setActiveTab('PRODUCTS')}
-                className={`flex items-center gap-1.5 px-2.5 lg:px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                className={`flex items-center gap-1.5 px-2 lg:px-2.5 py-1 rounded-md text-xs font-semibold transition-all ${
                   activeTab === 'PRODUCTS'
                     ? 'bg-brand text-white shadow-2xs'
                     : 'text-slate-600 dark:text-slate-300 hover:text-slate-900'
@@ -189,7 +195,7 @@ export const Header: React.FC = () => {
             {(can('report.view') || can('bill.take')) && (
               <button
                 onClick={() => setActiveTab('QUEUE')}
-                className={`flex items-center gap-1.5 px-2.5 lg:px-3 py-1.5 rounded-lg text-xs font-semibold transition-all relative ${
+                className={`flex items-center gap-1.5 px-2 lg:px-2.5 py-1 rounded-md text-xs font-semibold transition-all relative ${
                   activeTab === 'QUEUE'
                     ? 'bg-brand text-white shadow-2xs'
                     : 'text-slate-600 dark:text-slate-300 hover:text-slate-900'
@@ -208,7 +214,7 @@ export const Header: React.FC = () => {
             {can('report.view') && (
               <button
                 onClick={() => setActiveTab('HISTORY')}
-                className={`flex items-center gap-1.5 px-2.5 lg:px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                className={`flex items-center gap-1.5 px-2 lg:px-2.5 py-1 rounded-md text-xs font-semibold transition-all ${
                   activeTab === 'HISTORY'
                     ? 'bg-brand text-white shadow-2xs'
                     : 'text-slate-600 dark:text-slate-300 hover:text-slate-900'
@@ -222,7 +228,7 @@ export const Header: React.FC = () => {
             {(can('staff.manage') || can('device.manage')) && (
               <button
                 onClick={() => setActiveTab('SETTINGS')}
-                className={`flex items-center gap-1.5 px-2.5 lg:px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                className={`flex items-center gap-1.5 px-2 lg:px-2.5 py-1 rounded-md text-xs font-semibold transition-all ${
                   activeTab === 'SETTINGS'
                     ? 'bg-brand text-white shadow-2xs'
                     : 'text-slate-600 dark:text-slate-300 hover:text-slate-900'

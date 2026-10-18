@@ -6,7 +6,9 @@ export interface Business {
   id: string;
   name: string;
   business_type?: BusinessType;
+  businessType?: BusinessType;
   tax_identifier?: string | null;
+  taxIdentifier?: string | null;
   currency?: string;
   timezone?: string;
   created_at?: string;
@@ -28,21 +30,21 @@ const CACHED_ROLE_KEY = 'aura_cached_role';
 const CACHED_TOKEN_KEY = 'aura_auth_token';
 
 const DEFAULT_BUSINESS: Business = {
-  id: '00000000-0000-0000-0000-000000000001',
-  name: 'Aura Cafe & Roastery',
+  id: '11111111-1111-1111-1111-111111111111',
+  name: 'Spice Cafe',
   business_type: 'cafe',
-  tax_identifier: '29AAAAA0000A1Z5',
+  tax_identifier: '29AABCS1234F1Z8',
   currency: 'INR',
   timezone: 'Asia/Kolkata',
-  address: '12th Main, Indiranagar Coffee Street, Bengaluru',
-  phone: '+91 80 2520 8900',
+  address: '100ft Road, Indiranagar, Bengaluru, Karnataka',
+  phone: '+91 80 4123 5678',
 };
 
 const DEFAULT_USER: AuthUser = {
-  id: 'staff_cashier_01',
-  email: 'ramesh@auracafe.com',
-  fullName: 'Barista Ramesh',
-  role: 'cashier',
+  id: '22222222-2222-2222-2222-222222222222',
+  email: 'spicecafe@gmail.com',
+  fullName: 'Rahul Patel',
+  role: 'owner',
 };
 
 interface AuthState {
@@ -61,7 +63,7 @@ interface AuthState {
   initAuth: () => Promise<void>;
   enableStandaloneMode: () => void;
   signInWithEmail: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
-  signUpWithEmail: (email: string, password: string, fullName: string) => Promise<{ success: boolean; error?: string }>;
+  signUpWithEmail: (email: string, password: string, fullName: string) => Promise<{ success: boolean; error?: string; needsConfirmation?: boolean }>;
   signOut: () => Promise<void>;
   createBusiness: (name: string, businessType: BusinessType, gstin?: string) => Promise<{ success: boolean; error?: string }>;
   selectBusiness: (businessId: string) => Promise<void>;
@@ -148,9 +150,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     try {
       const res = await restApi.auth.me();
       if (res && res.authenticated) {
+        const rawBiz = res.business || cachedBiz || DEFAULT_BUSINESS;
+        const business: Business = {
+          ...rawBiz,
+          business_type: rawBiz.business_type || rawBiz.businessType || 'cafe',
+          businessType: rawBiz.businessType || rawBiz.business_type || 'cafe',
+        };
         const user: AuthUser = res.user || cachedUser || DEFAULT_USER;
-        const business: Business = res.business || cachedBiz || DEFAULT_BUSINESS;
-        const role = (res.role || user.role || 'cashier') as UserRole;
+        const role = (res.role || user.role || 'owner') as UserRole;
 
         if (typeof localStorage !== 'undefined') {
           localStorage.setItem(CACHED_USER_KEY, JSON.stringify(user));
@@ -175,8 +182,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
     // 3. Fallback to cached or default Aura session so terminal is NEVER locked out
     const finalUser = cachedUser || DEFAULT_USER;
-    const finalBiz = cachedBiz || DEFAULT_BUSINESS;
-    const finalRole = cachedRole || finalUser.role || 'cashier';
+    const rawFinalBiz = cachedBiz || DEFAULT_BUSINESS;
+    const finalBiz: Business = {
+      ...rawFinalBiz,
+      business_type: rawFinalBiz.business_type || rawFinalBiz.businessType || 'cafe',
+      businessType: rawFinalBiz.businessType || rawFinalBiz.business_type || 'cafe',
+    };
+    const finalRole = cachedRole || finalUser.role || 'owner';
 
     if (typeof localStorage !== 'undefined') {
       localStorage.setItem(CACHED_USER_KEY, JSON.stringify(finalUser));
@@ -201,7 +213,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       const res = await restApi.auth.login({ email, password });
       if (res.success) {
         const user: AuthUser = res.user;
-        const business: Business = res.business || DEFAULT_BUSINESS;
+        const rawBiz = res.business || DEFAULT_BUSINESS;
+        const business: Business = {
+          ...rawBiz,
+          business_type: rawBiz.business_type || rawBiz.businessType || 'cafe',
+          businessType: rawBiz.businessType || rawBiz.business_type || 'cafe',
+        };
         const role: UserRole = res.role || user.role || 'owner';
 
         if (typeof localStorage !== 'undefined') {

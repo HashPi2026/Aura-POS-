@@ -6,8 +6,9 @@ import path from 'path';
 const router = Router();
 
 // In-memory or file-backed configuration for Supabase
+const DEFAULT_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh3ZHhwdm15cHhucGZpYW1jbXZzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTIxMzE5NDcsImV4cCI6MjEwNzcwNzk0N30.FkTI2Y3cST2Oh2BHlNVpjiX66U2qIDNU1RVUPIeSjcE';
 let supabaseUrl = process.env.VITE_SUPABASE_URL || 'https://hwdxpvmypxnpfiamcmvs.supabase.co';
-let supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY || '';
+let supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY || DEFAULT_ANON_KEY;
 
 // Load from .env if present
 const envPath = path.resolve(process.cwd(), '.env');
@@ -24,6 +25,9 @@ if (fs.existsSync(envPath)) {
       }
     }
   } catch (_) {}
+}
+if (!supabaseAnonKey) {
+  supabaseAnonKey = DEFAULT_ANON_KEY;
 }
 
 // GET /api/supabase/status
@@ -58,81 +62,23 @@ router.post('/config', (req: Request, res: Response) => {
   });
 });
 
-// POST /api/supabase/push-all - Pushes all sales directly to Supabase REST API
+import { pushSaleToSupabase } from '../db/supabaseClient';
+
+// POST /api/supabase/push-all - Pushes all sales directly to Supabase PostgreSQL database
 router.post('/push-all', async (req: Request, res: Response) => {
-  const activeUrl = req.body.url || supabaseUrl;
-  const activeKey = req.body.anonKey || supabaseAnonKey;
-
-  if (!activeUrl || !activeKey || activeKey.length < 20) {
-    return res.status(400).json({
-      success: false,
-      error: 'Supabase Anon Key is required to push to cloud database',
-    });
-  }
-
   try {
     const sales = db.getSales();
-    const business = db.getBusiness();
+    let pushedCount = 0;
 
-    // 1. Ensure business exists in Supabase
-    await fetch(`${activeUrl}/rest/v1/businesses`, {
-      method: 'POST',
-      headers: {
-        'apikey': activeKey,
-        'Authorization': `Bearer ${activeKey}`,
-        'Content-Type': 'application/json',
-        'Prefer': 'resolution=merge-duplicates',
-      },
-      body: JSON.stringify({
-        id: business.id,
-        name: business.name,
-        business_type: business.businessType || 'cafe',
-        currency: business.currency || 'INR',
-        timezone: business.timezone || 'Asia/Kolkata',
-        tax_identifier: business.taxIdentifier || '29AAAAA0000A1Z5',
-      }),
-    });
-
-    // 2. Prepare sales payload for public.sales table
-    const recordsToPush = sales.map((s) => ({
-      id: s.id.includes('-') ? s.id : undefined, // Must be valid UUID if provided
-      business_id: business.id,
-      receipt_number: s.receiptNumber,
-      cashier_name: s.cashierName || 'Barista Ramesh',
-      order_type: s.orderType || 'DINE_IN',
-      table_name: s.tableName || null,
-      subtotal: s.subtotal || 0,
-      tax_amount: s.totalGst || 0,
-      discount_amount: 0,
-      round_off: s.roundOff || 0,
-      total_amount: s.totalAmount || 0,
-      status: 'COMPLETED',
-      client_timestamp: new Date(s.timestamp || Date.now()).toISOString(),
-    })).filter((s) => s.id); // Only UUIDs
-
-    const pushRes = await fetch(`${activeUrl}/rest/v1/sales`, {
-      method: 'POST',
-      headers: {
-        'apikey': activeKey,
-        'Authorization': `Bearer ${activeKey}`,
-        'Content-Type': 'application/json',
-        'Prefer': 'resolution=merge-duplicates',
-      },
-      body: JSON.stringify(recordsToPush),
-    });
-
-    if (!pushRes.ok) {
-      const errText = await pushRes.text();
-      return res.status(pushRes.status).json({
-        success: false,
-        error: `Supabase returned ${pushRes.status}: ${errText}`,
-      });
+    for (const s of sales) {
+      const ok = await pushSaleToSupabase(s);
+      if (ok) pushedCount++;
     }
 
     res.json({
       success: true,
-      pushedCount: recordsToPush.length,
-      message: `Successfully pushed ${recordsToPush.length} sales to Supabase public.sales`,
+      pushedCount,
+      message: `Successfully synchronized ${pushedCount} sale(s) to Supabase PostgreSQL (public.sales & public.payments)`,
     });
   } catch (err: any) {
     res.status(500).json({

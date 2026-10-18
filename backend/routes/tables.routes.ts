@@ -15,9 +15,10 @@ router.get('/', (req: Request, res: Response) => {
 // PUT /api/tables/:id
 router.put('/:id', (req: Request, res: Response) => {
   const tableData: TableItem = req.body;
+  const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
   const updated = db.updateTable({
     ...tableData,
-    id: req.params.id,
+    id,
   });
   res.json({ success: true, table: updated });
 });

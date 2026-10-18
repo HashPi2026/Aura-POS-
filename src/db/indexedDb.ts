@@ -531,6 +531,16 @@ export async function resetToDefaultProducts(): Promise<Product[]> {
   return db.getAll('products');
 }
 
+export async function replaceAllProducts(products: Product[]): Promise<void> {
+  const db = await getDb();
+  const tx = db.transaction('products', 'readwrite');
+  await tx.store.clear();
+  for (const prod of products) {
+    await tx.store.put(prod);
+  }
+  await tx.done;
+}
+
 export async function getTables(): Promise<RestaurantTable[]> {
   const db = await getDb();
   return db.getAll('tables');
@@ -617,6 +627,23 @@ export async function saveSale(sale: Sale): Promise<void> {
   const tx = db.transaction(['sales', 'draftCart'], 'readwrite');
   await tx.objectStore('sales').put(sale);
   await tx.objectStore('draftCart').delete('current_cart');
+  await tx.done;
+}
+
+export async function mergeRemoteSales(remoteSales: any[]): Promise<void> {
+  const db = await getDb();
+  const tx = db.transaction('sales', 'readwrite');
+  for (const s of remoteSales) {
+    const existing = await tx.store.get(s.id);
+    if (!existing) {
+      await tx.store.put({
+        ...s,
+        syncStatus: 'SYNCED',
+        syncedAt: s.syncedAt || s.timestamp,
+        syncAttempts: 1,
+      });
+    }
+  }
   await tx.done;
 }
 

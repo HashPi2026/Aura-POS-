@@ -27,13 +27,15 @@ router.patch('/:id', (req: Request, res: Response) => {
   if (!status) {
     return res.status(400).json({ success: false, error: 'Status is required' });
   }
-  const ok = db.updateKotStatus(req.params.id, status);
+  const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+  const ok = db.updateKotStatus(id, status);
   res.json({ success: ok });
 });
 
 // DELETE /api/kot/:id - Delete ticket
 router.delete('/:id', (req: Request, res: Response) => {
-  const ok = db.deleteKot(req.params.id);
+  const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+  const ok = db.deleteKot(id);
   res.json({ success: ok });
 });
 

@@ -1,8 +1,9 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { Database } from '../types/database';
 
-const supabaseUrl = (import.meta.env.VITE_SUPABASE_URL || '').trim();
-const supabaseAnonKey = (import.meta.env.VITE_SUPABASE_ANON_KEY || '').trim();
+const metaEnv = (import.meta as any).env || {};
+const supabaseUrl = (metaEnv.VITE_SUPABASE_URL || 'https://hwdxpvmypxnpfiamcmvs.supabase.co').trim();
+const supabaseAnonKey = (metaEnv.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh3ZHhwdm15cHhucGZpYW1jbXZzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTIxMzE5NDcsImV4cCI6MjEwNzcwNzk0N30.FkTI2Y3cST2Oh2BHlNVpjiX66U2qIDNU1RVUPIeSjcE').trim();
 
 export const isSupabaseConfigured = (): boolean => {
   return Boolean(

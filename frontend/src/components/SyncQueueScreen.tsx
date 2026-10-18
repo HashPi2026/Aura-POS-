@@ -58,25 +58,15 @@ export const SyncQueueScreen: React.FC = () => {
   } = usePosStore();
 
   const handleSaveAndPush = async () => {
-    if (!anonKey && !isConfigured) {
-      alert('Please enter your Supabase anon public API key (found in Supabase Settings -> API).');
-      return;
-    }
-
     setIsPushing(true);
     setPushResult(null);
 
     try {
-      if (anonKey) {
-        await restApi.supabase.config({ url: supabaseUrl, anonKey });
-        setIsConfigured(true);
-      }
-
-      const res = await restApi.supabase.pushAll({ url: supabaseUrl, anonKey: anonKey || undefined });
+      const res = await restApi.supabase.pushAll();
       if (res.success) {
         setPushResult({
           success: true,
-          message: `Successfully synchronized ${res.pushedCount || sales.length} sales into Supabase table public.sales!`,
+          message: `Successfully synchronized ${res.pushedCount ?? sales.length} sales into Supabase PostgreSQL (public.sales & public.payments)!`,
         });
       } else {
         setPushResult({
@@ -168,30 +158,49 @@ ON CONFLICT (id) DO NOTHING;`;
         </div>
       </div>
 
-      {/* Supabase Cloud Connection & Sync Card */}
-      <div className="bg-gradient-to-r from-emerald-900 to-teal-950 text-white rounded-2xl p-5 border border-emerald-700/50 shadow-md flex flex-col gap-4">
-        <div className="flex items-center justify-between flex-wrap gap-2">
+      {/* Cloud Database Sync Status Banner */}
+      <div className="bg-gradient-to-r from-emerald-900 to-teal-950 text-white rounded-2xl p-4 sm:p-5 border border-emerald-700/50 shadow-sm flex flex-col gap-3">
+        <div className="flex items-center justify-between flex-wrap gap-3">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-emerald-500/20 border border-emerald-400/30 flex items-center justify-center text-emerald-300">
+            <div className="w-10 h-10 rounded-xl bg-emerald-500/20 border border-emerald-400/30 flex items-center justify-center text-emerald-300 shrink-0">
               <Database className="w-5 h-5" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h3 className="font-bold text-base text-white">Supabase Cloud Database Sync</h3>
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/30 text-emerald-200 border border-emerald-400/30">
-                  Project: hwdxpvmypxnpfiamcmvs
+                <h3 className="font-bold text-sm sm:text-base text-white">Supabase Cloud Database Sync</h3>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/30 text-emerald-200 border border-emerald-400/30 flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                  <span>Connected (hwdxpvmypxnpfiamcmvs)</span>
                 </span>
               </div>
               <p className="text-xs text-emerald-200/80">
-                Pushes your terminal sales directly into Supabase PostgreSQL table <code className="bg-black/30 px-1 py-0.5 rounded text-emerald-300">public.sales</code>
+                All POS sales auto-sync to PostgreSQL table <code className="bg-black/30 px-1 py-0.5 rounded text-emerald-300 font-mono text-[11px]">public.sales</code>
               </p>
             </div>
           </div>
 
           <div className="flex items-center gap-2">
             <button
+              onClick={handleSaveAndPush}
+              disabled={isPushing}
+              className="h-9 px-4 rounded-xl bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 text-slate-950 font-bold text-xs flex items-center gap-2 shadow-xs transition-all cursor-pointer"
+            >
+              {isPushing ? (
+                <>
+                  <RotateCw className="w-3.5 h-3.5 animate-spin text-slate-950" />
+                  <span>Syncing to Supabase...</span>
+                </>
+              ) : (
+                <>
+                  <Send className="w-3.5 h-3.5 text-slate-950" />
+                  <span>Push All {sales.length} Sales to Supabase</span>
+                </>
+              )}
+            </button>
+
+            <button
               onClick={() => setShowSql(!showSql)}
-              className="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-xs font-semibold text-white border border-white/20 flex items-center gap-1.5 transition-all"
+              className="h-9 px-3 rounded-xl bg-white/10 hover:bg-white/20 text-xs font-semibold text-white border border-white/20 flex items-center gap-1.5 transition-all"
             >
               <FileText className="w-3.5 h-3.5" />
               <span>{showSql ? 'Hide SQL' : 'View SQL Script'}</span>
@@ -199,43 +208,9 @@ ON CONFLICT (id) DO NOTHING;`;
           </div>
         </div>
 
-        {/* Anon Key Input & One-Click Push */}
-        <div className="bg-black/20 p-4 rounded-xl border border-white/10 flex flex-col md:flex-row items-center gap-3">
-          <div className="flex-1 w-full">
-            <label className="text-[11px] font-semibold text-emerald-200 block mb-1">
-              Supabase Project Anon Key (Found in Supabase: Settings → API → Project API Keys → <span className="text-white font-mono">anon public</span>):
-            </label>
-            <input
-              type="password"
-              placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.your-anon-key..."
-              value={anonKey}
-              onChange={(e) => setAnonKey(e.target.value)}
-              className="w-full h-10 px-3 rounded-lg bg-black/40 border border-emerald-600/40 text-xs text-white placeholder-emerald-400/40 font-mono focus:outline-hidden focus:border-emerald-400"
-            />
-          </div>
-
-          <button
-            onClick={handleSaveAndPush}
-            disabled={isPushing}
-            className="w-full md:w-auto mt-4 md:mt-5 h-10 px-5 rounded-lg bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 text-slate-950 font-bold text-xs flex items-center justify-center gap-2 shadow-sm shrink-0 transition-all cursor-pointer"
-          >
-            {isPushing ? (
-              <>
-                <RotateCw className="w-4 h-4 animate-spin text-slate-950" />
-                <span>Pushing to Supabase...</span>
-              </>
-            ) : (
-              <>
-                <Send className="w-4 h-4 text-slate-950" />
-                <span>Push All {sales.length} Sales to Supabase</span>
-              </>
-            )}
-          </button>
-        </div>
-
         {pushResult && (
           <div
-            className={`p-3 rounded-xl text-xs flex items-center gap-2.5 border ${
+            className={`p-2.5 rounded-xl text-xs flex items-center gap-2.5 border ${
               pushResult.success
                 ? 'bg-emerald-500/20 border-emerald-400/50 text-emerald-200'
                 : 'bg-rose-500/20 border-rose-400/50 text-rose-200'

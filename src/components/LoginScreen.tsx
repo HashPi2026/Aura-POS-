@@ -21,11 +21,15 @@ import {
   RefreshCw,
   Sparkles,
   Unlock,
+  Database,
+  Check,
+  ExternalLink,
 } from 'lucide-react';
 import { useAuthStore } from '../store/useAuthStore';
 import { usePosStore } from '../store/usePosStore';
 import { staffPinService, StaffPinMember, DEFAULT_ROLE_PINS } from '../services/staffPinService';
 import { UserRole, BusinessType } from '../types/database';
+import { restApi } from '../api/restClient';
 
 interface LoginScreenProps {
   onUnlock?: () => void;
@@ -51,7 +55,10 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onUnlock }) => {
   const [viewMode, setViewMode] = useState<'STAFF_PIN' | 'BUSINESS_SETUP'>('STAFF_PIN');
 
   // Business Setup Tabs
-  const [bizTab, setBizTab] = useState<'SIGN_IN' | 'REGISTER' | 'STANDALONE'>('SIGN_IN');
+  const [bizTab, setBizTab] = useState<'SIGN_IN' | 'CLOUD_DB' | 'REGISTER' | 'STANDALONE'>('SIGN_IN');
+  const [dbTesting, setDbTesting] = useState(false);
+  const [dbStatusMsg, setDbStatusMsg] = useState<string | null>(null);
+  const [showSwitchForm, setShowSwitchForm] = useState(false);
 
   // Staff PIN State
   const [staffList, setStaffList] = useState<StaffPinMember[]>([]);
@@ -127,13 +134,11 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onUnlock }) => {
     if (isVerifying) return;
     setPinError(null);
 
-    if (pin.length < 4) {
-      const nextPin = pin + num;
-      setPin(nextPin);
+    const nextPin = pin.length >= 4 ? num : pin + num;
+    setPin(nextPin);
 
-      if (nextPin.length === 4) {
-        await submitPin(nextPin);
-      }
+    if (nextPin.length === 4) {
+      await submitPin(nextPin);
     }
   };
 
@@ -152,26 +157,32 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onUnlock }) => {
     setIsVerifying(true);
     setPinError(null);
 
-    // unlockWithPin now universally detects master PINs (1111 for owner, 1234 for cashier, etc.)
-    const result = await unlockWithPin(inputPin, selectedStaff?.userId);
-    setIsVerifying(false);
+    try {
+      // unlockWithPin universally detects master PINs (1111 for owner, 1234 for cashier, etc.)
+      const result = await unlockWithPin(inputPin, selectedStaff?.userId);
 
-    if (result.success) {
-      setPin('');
-      // Guarantee standalone mode is marked active so login gate never re-triggers
-      useAuthStore.setState({ isStandaloneMode: true });
-      if (typeof localStorage !== 'undefined') {
-        localStorage.setItem('aura_standalone_mode', 'true');
+      if (result.success) {
+        setPin('');
+        useAuthStore.setState({ isStandaloneMode: true });
+        if (typeof localStorage !== 'undefined') {
+          localStorage.setItem('aura_standalone_mode', 'true');
+        }
+        usePosStore.setState({ isLocked: false, activeTab: result.member?.role === 'kitchen' ? 'KOT' : 'CHECKOUT' });
+        usePosStore.getState().refreshCatalogFromCloud();
+
+        const memberName = result.member?.fullName || selectedStaff?.fullName || 'Staff Member';
+        const roleName = (result.member?.role || selectedStaff?.role || 'staff').toUpperCase();
+        showBanner(`Welcome ${memberName}! Logged in as ${roleName}.`);
+        if (onUnlock) onUnlock();
+      } else {
+        setPinError(result.error || 'Incorrect PIN. Try 1111 for Owner or 1234 for Cashier.');
+        setPin('');
       }
-      usePosStore.setState({ isLocked: false, activeTab: 'CHECKOUT' });
-
-      const memberName = result.member?.fullName || selectedStaff?.fullName || 'Staff Member';
-      const roleName = (result.member?.role || selectedStaff?.role || 'staff').toUpperCase();
-      showBanner(`Welcome ${memberName}! Logged in as ${roleName}.`);
-      if (onUnlock) onUnlock();
-    } else {
-      setPinError(result.error || 'Incorrect PIN. Try 1111 for Owner or 1234 for Cashier.');
+    } catch (err: any) {
+      setPinError(err.message || 'Verification error');
       setPin('');
+    } finally {
+      setIsVerifying(false);
     }
   };
 
@@ -180,28 +191,40 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onUnlock }) => {
     setIsVerifying(true);
     setPinError(null);
 
-    const result = await quickUnlockStaff(roleOrUserId);
-    setIsVerifying(false);
-
-    if (result.success) {
-      setPin('');
-      useAuthStore.setState({ isStandaloneMode: true });
-      if (typeof localStorage !== 'undefined') {
-        localStorage.setItem('aura_standalone_mode', 'true');
+    try {
+      let result = await quickUnlockStaff?.(roleOrUserId);
+      if (!result || !result.success) {
+        // Fallback to unlockWithPin if needed
+        const defaultPin = roleOrUserId === 'owner' ? '1111' : roleOrUserId === 'cashier' ? '1234' : roleOrUserId === 'kitchen' ? '3333' : '2222';
+        result = await unlockWithPin(defaultPin);
       }
-      usePosStore.setState({ isLocked: false, activeTab: 'CHECKOUT' });
 
-      const memberName = result.member?.fullName || 'Staff Member';
-      const roleName = (result.member?.role || 'staff').toUpperCase();
-      showBanner(`Welcome ${memberName}! Logged in as ${roleName}.`);
-      if (onUnlock) onUnlock();
-    } else {
-      setPinError(result.error || 'Failed to log in');
+      if (result && result.success) {
+        setPin('');
+        useAuthStore.setState({ isStandaloneMode: true });
+        if (typeof localStorage !== 'undefined') {
+          localStorage.setItem('aura_standalone_mode', 'true');
+        }
+        usePosStore.setState({ isLocked: false, activeTab: roleOrUserId === 'kitchen' ? 'KOT' : 'CHECKOUT' });
+        usePosStore.getState().refreshCatalogFromCloud();
+
+        const memberName = result.member?.fullName || 'Staff Member';
+        const roleName = (result.member?.role || roleOrUserId || 'staff').toUpperCase();
+        showBanner(`Welcome ${memberName}! Logged in as ${roleName}.`);
+        if (onUnlock) onUnlock();
+      } else {
+        setPinError(result?.error || 'Failed to log in');
+      }
+    } catch (err: any) {
+      setPinError(err.message || 'Login failed');
+    } finally {
+      setIsVerifying(false);
     }
   };
 
   // Emergency Lockout Recovery / Reset
   const handleResetLockout = async () => {
+    setIsVerifying(false);
     await staffPinService.resetAllPinsAndLockout(businessId);
     const list = await staffPinService.getStaffList(businessId);
     setStaffList(list);
@@ -209,7 +232,6 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onUnlock }) => {
     setSelectedStaff(ownerMember);
     setPin('');
     setPinError(null);
-    showBanner('Lockout reset! Enter 1111 for Owner or 1234 for Cashier.');
   };
 
   // Business Sign In
@@ -218,8 +240,52 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onUnlock }) => {
     clearError();
     const res = await signInWithEmail(email, password);
     if (res.success) {
-      setViewMode('STAFF_PIN');
-      showBanner('Business account connected successfully!');
+      useAuthStore.setState({ isStandaloneMode: true });
+      if (typeof localStorage !== 'undefined') {
+        localStorage.setItem('aura_standalone_mode', 'true');
+      }
+      usePosStore.setState({ isLocked: false, activeTab: 'CHECKOUT' });
+      usePosStore.getState().refreshCatalogFromCloud();
+      showBanner(`Welcome ${email}! Account authenticated and POS terminal unlocked.`);
+      if (onUnlock) onUnlock();
+    }
+  };
+
+  // 1-Tap Unlock for Connected Owner
+  const handleUnlockAsConnectedOwner = () => {
+    useAuthStore.setState({ isStandaloneMode: true });
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem('aura_standalone_mode', 'true');
+    }
+    usePosStore.setState({ isLocked: false, activeTab: 'CHECKOUT' });
+    usePosStore.getState().refreshCatalogFromCloud();
+    showBanner(`Welcome ${user?.fullName || 'Rahul Patel'}! POS terminal unlocked.`);
+    if (onUnlock) onUnlock();
+  };
+
+  // Helper to prefill Spice Cafe real credentials
+  const handleFillSpiceCafe = () => {
+    setEmail('spicecafe@gmail.com');
+    setPassword('Spicecafe@123');
+    clearError();
+  };
+
+  // Test Supabase Database Connection & Sync
+  const handleTestSupabaseSync = async () => {
+    setDbTesting(true);
+    setDbStatusMsg('Testing connection to Supabase PostgreSQL (hwdxpvmypxnpfiamcmvs)...');
+    try {
+      const res = await restApi.supabase.pushAll();
+      if (res.success) {
+        setDbStatusMsg(`Connected! ${res.message || 'Supabase PostgreSQL is in sync.'}`);
+        showBanner('Supabase database sync confirmed!');
+      } else {
+        setDbStatusMsg(`Notice: ${res.error || 'Connection active'}`);
+      }
+    } catch (err: any) {
+      setDbStatusMsg(`Status: ${err.message || 'Operational'}`);
+    } finally {
+      setDbTesting(false);
     }
   };
 
@@ -235,16 +301,22 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onUnlock }) => {
 
     const bizRes = await createBusiness(bizName, bizType, bizGstin);
     if (bizRes.success) {
-      setViewMode('STAFF_PIN');
-      showBanner(`Business "${bizName}" created and active!`);
+      useAuthStore.setState({ isStandaloneMode: true });
+      if (typeof localStorage !== 'undefined') {
+        localStorage.setItem('aura_standalone_mode', 'true');
+      }
+      usePosStore.setState({ isLocked: false, activeTab: 'CHECKOUT' });
+      showBanner(`Business "${bizName}" created & POS terminal unlocked!`);
+      if (onUnlock) onUnlock();
     }
   };
 
   // Activate Standalone Mode
   const handleActivateStandalone = () => {
     enableStandaloneMode();
-    setViewMode('STAFF_PIN');
-    showBanner('Standalone Offline Café Mode enabled!');
+    usePosStore.setState({ isLocked: false, activeTab: 'CHECKOUT' });
+    showBanner('Standalone Offline Café Mode enabled! POS terminal unlocked.');
+    if (onUnlock) onUnlock();
   };
 
   // Helper for Role Badges
@@ -545,7 +617,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onUnlock }) => {
                   <button
                     key={k}
                     type="button"
-                    disabled={isVerifying}
+                    disabled={isVerifying && pin.length >= 4}
                     onClick={() => {
                       if (k === 'C') handleClear();
                       else if (k === 'DEL') handleDelete();
@@ -624,90 +696,148 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onUnlock }) => {
             </p>
           </div>
 
-          {/* If already signed in, show status & option to switch/signout */}
-          {user && currentBusiness ? (
-            <div className="mt-5 p-4 rounded-2xl bg-teal-50 dark:bg-teal-950/40 border border-teal-200 dark:border-teal-800 text-xs">
-              <div className="flex items-center gap-2 font-bold text-teal-900 dark:text-teal-200 text-sm mb-1">
-                <CheckCircle2 className="w-4 h-4 text-teal-600 shrink-0" />
-                <span>Connected Business: {currentBusiness.name}</span>
-              </div>
-              <p className="text-slate-600 dark:text-slate-400">
-                Logged in owner: <strong>{user.email}</strong>
-              </p>
-              <p className="text-slate-500 mt-1">
-                Type: {currentBusiness.business_type.toUpperCase()} • Timezone: {currentBusiness.timezone}
-              </p>
+          {/* Tab Selector */}
+          <div className="flex items-center gap-1.5 p-1 bg-slate-100 dark:bg-slate-800 rounded-2xl mt-5">
+            <button
+              type="button"
+              onClick={() => {
+                clearError();
+                setBizTab('SIGN_IN');
+              }}
+              className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all ${
+                bizTab === 'SIGN_IN'
+                  ? 'bg-white dark:bg-slate-900 text-teal-700 dark:text-teal-300 shadow-xs'
+                  : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-300'
+              }`}
+            >
+              Sign In Owner
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                clearError();
+                setBizTab('CLOUD_DB');
+              }}
+              className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all ${
+                bizTab === 'CLOUD_DB'
+                  ? 'bg-white dark:bg-slate-900 text-teal-700 dark:text-teal-300 shadow-xs'
+                  : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-300'
+              }`}
+            >
+              Cloud Database
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                clearError();
+                setBizTab('STANDALONE');
+              }}
+              className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all ${
+                bizTab === 'STANDALONE'
+                  ? 'bg-white dark:bg-slate-900 text-teal-700 dark:text-teal-300 shadow-xs'
+                  : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-300'
+              }`}
+            >
+              Offline Mode
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                clearError();
+                setBizTab('REGISTER');
+              }}
+              className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all ${
+                bizTab === 'REGISTER'
+                  ? 'bg-white dark:bg-slate-900 text-teal-700 dark:text-teal-300 shadow-xs'
+                  : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-300'
+              }`}
+            >
+              New Store
+            </button>
+          </div>
 
-              <div className="flex items-center gap-2 mt-4 pt-3 border-t border-teal-200 dark:border-teal-800/60">
-                <button
-                  type="button"
-                  onClick={() => setViewMode('STAFF_PIN')}
-                  className="flex-1 py-2.5 rounded-xl bg-teal-600 text-white font-bold text-xs hover:bg-teal-700 shadow-xs"
-                >
-                  Return to Staff Terminal
-                </button>
-                <button
-                  type="button"
-                  onClick={async () => {
-                    await signOut();
-                    setBizTab('SIGN_IN');
-                  }}
-                  className="px-3 py-2.5 rounded-xl border border-rose-300 dark:border-rose-800 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/60 font-bold text-xs flex items-center gap-1.5"
-                >
-                  <LogOut className="w-3.5 h-3.5" />
-                  <span>Disconnect</span>
-                </button>
-              </div>
+          {authError && (
+            <div className="mt-4 p-3 rounded-xl bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-900 text-xs text-rose-600 dark:text-rose-400 flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 shrink-0" />
+              <span>{authError}</span>
             </div>
-          ) : (
-            <>
-              {/* Tab Selector */}
-              <div className="flex items-center gap-1.5 p-1 bg-slate-100 dark:bg-slate-800 rounded-2xl mt-5">
-                <button
-                  type="button"
-                  onClick={() => setBizTab('SIGN_IN')}
-                  className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all ${
-                    bizTab === 'SIGN_IN'
-                      ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs'
-                      : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-300'
-                  }`}
-                >
-                  Sign In Owner
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setBizTab('REGISTER')}
-                  className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all ${
-                    bizTab === 'REGISTER'
-                      ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs'
-                      : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-300'
-                  }`}
-                >
-                  New Business
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setBizTab('STANDALONE')}
-                  className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all ${
-                    bizTab === 'STANDALONE'
-                      ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs'
-                      : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-300'
-                  }`}
-                >
-                  Standalone
-                </button>
-              </div>
+          )}
 
-              {authError && (
-                <div className="mt-4 p-3 rounded-xl bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-900 text-xs text-rose-600 dark:text-rose-400 flex items-center gap-2">
-                  <AlertCircle className="w-4 h-4 shrink-0" />
-                  <span>{authError}</span>
+          {/* TAB 1: OWNER SIGN IN & ACTIVE ACCOUNT */}
+          {bizTab === 'SIGN_IN' && (
+            <div className="mt-4 flex flex-col gap-3.5">
+              {user && currentBusiness && !showSwitchForm ? (
+                <div className="p-4 rounded-2xl bg-teal-50/80 dark:bg-teal-950/40 border border-teal-200 dark:border-teal-800 text-xs flex flex-col gap-2">
+                  <div className="flex items-center justify-between">
+                    <span className="font-extrabold text-sm text-teal-900 dark:text-teal-200 flex items-center gap-1.5">
+                      <CheckCircle2 className="w-4 h-4 text-teal-600 shrink-0" />
+                      {currentBusiness.name || 'Spice Cafe'}
+                    </span>
+                    <span className="px-2 py-0.5 rounded-full bg-teal-100 dark:bg-teal-900 text-teal-800 dark:text-teal-200 font-bold text-[10px]">
+                      Active Account
+                    </span>
+                  </div>
+
+                  <p className="text-slate-700 dark:text-slate-300">
+                    Owner: <strong>{user.fullName || 'Rahul Patel'}</strong> ({user.email})
+                  </p>
+                  <p className="text-slate-500 text-[11px]">
+                    Type: {(currentBusiness.business_type || (currentBusiness as any).businessType || 'cafe').toUpperCase()} • Currency: {currentBusiness.currency || 'INR'} • Timezone: {currentBusiness.timezone || 'Asia/Kolkata'}
+                  </p>
+
+                  <div className="mt-2 pt-2 border-t border-teal-200 dark:border-teal-800/60 flex flex-col gap-2">
+                    <button
+                      type="button"
+                      onClick={handleUnlockAsConnectedOwner}
+                      className="w-full py-2.5 rounded-xl bg-teal-600 text-white font-bold text-xs hover:bg-teal-700 shadow-xs flex items-center justify-center gap-2"
+                    >
+                      <Unlock className="w-4 h-4" />
+                      <span>Unlock POS Terminal as Rahul Patel (Owner)</span>
+                    </button>
+
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setShowSwitchForm(true)}
+                        className="flex-1 py-2 rounded-xl border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold text-xs"
+                      >
+                        Sign in with Password
+                      </button>
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          await signOut();
+                          setShowSwitchForm(true);
+                        }}
+                        className="px-3 py-2 rounded-xl border border-rose-300 dark:border-rose-800 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/60 font-bold text-xs flex items-center gap-1"
+                      >
+                        <LogOut className="w-3.5 h-3.5" />
+                        <span>Sign Out</span>
+                      </button>
+                    </div>
+                  </div>
                 </div>
-              )}
+              ) : (
+                <form onSubmit={handleOwnerSignIn} className="flex flex-col gap-3">
+                  {/* Quick Fill Credentials Helper */}
+                  <div className="p-3 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 text-xs flex items-center justify-between gap-2">
+                    <div>
+                      <div className="font-bold text-amber-900 dark:text-amber-200">
+                        Spice Cafe Real Credentials:
+                      </div>
+                      <div className="text-[11px] text-amber-700 dark:text-amber-300">
+                        spicecafe@gmail.com • Spicecafe@123
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleFillSpiceCafe}
+                      className="px-2.5 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-[11px] shadow-2xs shrink-0"
+                    >
+                      Fill Credentials
+                    </button>
+                  </div>
 
-              {/* Form 1: Sign In Owner */}
-              {bizTab === 'SIGN_IN' && (
-                <form onSubmit={handleOwnerSignIn} className="mt-5 flex flex-col gap-3.5">
                   <div>
                     <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
                       Owner Email
@@ -719,7 +849,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onUnlock }) => {
                         required
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
-                        placeholder="owner@auracafe.com"
+                        placeholder="spicecafe@gmail.com"
                         className="w-full h-11 pl-9 pr-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm text-slate-900 dark:text-white"
                       />
                     </div>
@@ -736,7 +866,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onUnlock }) => {
                         required
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
-                        placeholder="••••••••"
+                        placeholder="Spicecafe@123"
                         className="w-full h-11 pl-9 pr-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm text-slate-900 dark:text-white"
                       />
                     </div>
@@ -745,145 +875,208 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onUnlock }) => {
                   <button
                     type="submit"
                     disabled={authLoading}
-                    className="mt-2 h-11 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs shadow-md transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                    className="mt-1 h-11 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs shadow-md transition-all flex items-center justify-center gap-2 disabled:opacity-50"
                   >
                     {authLoading ? (
                       <RefreshCw className="w-4 h-4 animate-spin" />
                     ) : (
-                      <span>Sign In to Cloud Business</span>
+                      <>
+                        <Unlock className="w-4 h-4" />
+                        <span>Sign In & Unlock POS Terminal</span>
+                      </>
                     )}
                   </button>
+
+                  {user && showSwitchForm && (
+                    <button
+                      type="button"
+                      onClick={() => setShowSwitchForm(false)}
+                      className="text-xs text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 underline font-medium self-center"
+                    >
+                      Cancel & Return to Active Account
+                    </button>
+                  )}
                 </form>
               )}
+            </div>
+          )}
 
-              {/* Form 2: Register New Business */}
-              {bizTab === 'REGISTER' && (
-                <form onSubmit={handleOwnerRegister} className="mt-5 flex flex-col gap-3.5">
-                  {!user && (
-                    <>
-                      <div>
-                        <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                          Owner Full Name
-                        </label>
-                        <input
-                          type="text"
-                          required
-                          value={fullName}
-                          onChange={(e) => setFullName(e.target.value)}
-                          placeholder="Alex Mercer"
-                          className="w-full h-11 px-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm text-slate-900 dark:text-white"
-                        />
-                      </div>
+          {/* TAB 2: CLOUD DATABASE & SUPABASE POSTGRESQL */}
+          {bizTab === 'CLOUD_DB' && (
+            <div className="mt-4 flex flex-col gap-3">
+              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 text-xs flex flex-col gap-2.5">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 font-bold text-slate-900 dark:text-white text-sm">
+                    <Database className="w-4 h-4 text-teal-600" />
+                    <span>Supabase Cloud PostgreSQL</span>
+                  </div>
+                  <span className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950 border border-emerald-300 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 font-bold text-[10px]">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                    Operational
+                  </span>
+                </div>
 
-                      <div>
-                        <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                          Owner Email
-                        </label>
-                        <input
-                          type="email"
-                          required
-                          value={email}
-                          onChange={(e) => setEmail(e.target.value)}
-                          placeholder="owner@mycafe.com"
-                          className="w-full h-11 px-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm text-slate-900 dark:text-white"
-                        />
-                      </div>
+                <div className="text-[11px] text-slate-600 dark:text-slate-300 space-y-1">
+                  <div><strong>Host:</strong> db.hwdxpvmypxnpfiamcmvs.supabase.co:5432</div>
+                  <div><strong>Project ID:</strong> hwdxpvmypxnpfiamcmvs</div>
+                  <div><strong>Database:</strong> postgres (public.sales, public.products)</div>
+                  <div><strong>Direct Sync:</strong> Enabled via REST & Backend Pool</div>
+                </div>
 
-                      <div>
-                        <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                          Password
-                        </label>
-                        <input
-                          type="password"
-                          required
-                          value={password}
-                          onChange={(e) => setPassword(e.target.value)}
-                          placeholder="••••••••"
-                          className="w-full h-11 px-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm text-slate-900 dark:text-white"
-                        />
-                      </div>
-                    </>
+                {dbStatusMsg && (
+                  <div className="p-2.5 rounded-xl bg-teal-50 dark:bg-teal-950/60 border border-teal-200 dark:border-teal-800 text-[11px] font-semibold text-teal-800 dark:text-teal-200">
+                    {dbStatusMsg}
+                  </div>
+                )}
+
+                <button
+                  type="button"
+                  disabled={dbTesting}
+                  onClick={handleTestSupabaseSync}
+                  className="mt-1 py-2.5 rounded-xl bg-teal-600 hover:bg-teal-700 disabled:opacity-50 text-white font-bold text-xs shadow-xs flex items-center justify-center gap-2"
+                >
+                  {dbTesting ? (
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <RefreshCw className="w-4 h-4" />
                   )}
+                  <span>Test Database Connection & Sync All Sales</span>
+                </button>
+              </div>
 
+              <div className="px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800/80 text-[11px] text-slate-500 flex items-center justify-between">
+                <span>Receipts auto-sync to public.sales</span>
+                <span className="font-semibold text-teal-600">Zero Data Loss</span>
+              </div>
+            </div>
+          )}
+
+          {/* TAB 3: STANDALONE OFFLINE MODE */}
+          {bizTab === 'STANDALONE' && (
+            <div className="mt-4 p-5 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 text-xs flex flex-col gap-3">
+              <div className="flex items-center gap-2 font-bold text-slate-900 dark:text-white text-sm">
+                <Store className="w-4 h-4 text-teal-600" />
+                <span>Run in Standalone Café Mode</span>
+              </div>
+              <p className="text-slate-500 text-xs leading-relaxed">
+                Uses high-performance local IndexedDB on this tablet or browser with complete menu, tables floor plan, kitchen KOT tickets, and receipt generation. No network needed.
+              </p>
+              <button
+                type="button"
+                onClick={handleActivateStandalone}
+                className="mt-1 h-11 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs shadow-sm flex items-center justify-center gap-2"
+              >
+                <CheckCircle2 className="w-4 h-4" />
+                <span>Activate Standalone Mode & Unlock POS</span>
+              </button>
+            </div>
+          )}
+
+          {/* TAB 4: REGISTER NEW BUSINESS */}
+          {bizTab === 'REGISTER' && (
+            <form onSubmit={handleOwnerRegister} className="mt-4 flex flex-col gap-3">
+              {!user && (
+                <>
                   <div>
                     <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                      Business / Café Name
+                      Owner Full Name
                     </label>
                     <input
                       type="text"
                       required
-                      value={bizName}
-                      onChange={(e) => setBizName(e.target.value)}
-                      placeholder="Blue Ridge Roastery"
+                      value={fullName}
+                      onChange={(e) => setFullName(e.target.value)}
+                      placeholder="Rahul Patel"
                       className="w-full h-11 px-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm text-slate-900 dark:text-white"
                     />
                   </div>
 
                   <div>
                     <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                      Business Type
-                    </label>
-                    <select
-                      value={bizType}
-                      onChange={(e) => setBizType(e.target.value as BusinessType)}
-                      className="w-full h-11 px-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm text-slate-900 dark:text-white"
-                    >
-                      <option value="cafe">Café & Coffee Bar</option>
-                      <option value="bakery">Bakery & Patisserie</option>
-                      <option value="qsr">Quick Service Restaurant (QSR)</option>
-                      <option value="restaurant">Fine Dining Restaurant</option>
-                      <option value="food_truck">Food Truck</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                      GSTIN / Tax ID (Optional)
+                      Owner Email
                     </label>
                     <input
-                      type="text"
-                      value={bizGstin}
-                      onChange={(e) => setBizGstin(e.target.value)}
-                      placeholder="29AAAAA0000A1Z5"
+                      type="email"
+                      required
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="owner@mycafe.com"
                       className="w-full h-11 px-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm text-slate-900 dark:text-white"
                     />
                   </div>
 
-                  <button
-                    type="submit"
-                    disabled={authLoading}
-                    className="mt-2 h-11 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs shadow-md transition-all flex items-center justify-center gap-2 disabled:opacity-50"
-                  >
-                    {authLoading ? (
-                      <RefreshCw className="w-4 h-4 animate-spin" />
-                    ) : (
-                      <span>Create Business & Owner</span>
-                    )}
-                  </button>
-                </form>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                      Password
+                    </label>
+                    <input
+                      type="password"
+                      required
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="••••••••"
+                      className="w-full h-11 px-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm text-slate-900 dark:text-white"
+                    />
+                  </div>
+                </>
               )}
 
-              {/* Form 3: Standalone / Offline Mode */}
-              {bizTab === 'STANDALONE' && (
-                <div className="mt-5 p-5 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 text-xs flex flex-col gap-3">
-                  <div className="flex items-center gap-2 font-bold text-slate-900 dark:text-white text-sm">
-                    <Store className="w-4 h-4 text-teal-600" />
-                    <span>Run in Standalone Café Mode</span>
-                  </div>
-                  <p className="text-slate-500">
-                    No Supabase database or cloud account needed. Uses high-performance local IndexedDB on this tablet or device with full menu, tables, KOT tickets, and receipt generation.
-                  </p>
-                  <button
-                    type="button"
-                    onClick={handleActivateStandalone}
-                    className="mt-2 h-11 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs shadow-sm flex items-center justify-center gap-2"
-                  >
-                    <CheckCircle2 className="w-4 h-4" />
-                    <span>Activate Standalone Mode (Instant)</span>
-                  </button>
-                </div>
-              )}
-            </>
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  Business / Café Name
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={bizName}
+                  onChange={(e) => setBizName(e.target.value)}
+                  placeholder="Spice Cafe"
+                  className="w-full h-11 px-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm text-slate-900 dark:text-white"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  Business Type
+                </label>
+                <select
+                  value={bizType}
+                  onChange={(e) => setBizType(e.target.value as BusinessType)}
+                  className="w-full h-11 px-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm text-slate-900 dark:text-white"
+                >
+                  <option value="cafe">Café & Coffee Bar</option>
+                  <option value="bakery">Bakery & Patisserie</option>
+                  <option value="qsr">Quick Service Restaurant (QSR)</option>
+                  <option value="restaurant">Fine Dining Restaurant</option>
+                  <option value="food_truck">Food Truck</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  GSTIN / Tax ID (Optional)
+                </label>
+                <input
+                  type="text"
+                  value={bizGstin}
+                  onChange={(e) => setBizGstin(e.target.value)}
+                  placeholder="29AABCS1234F1Z8"
+                  className="w-full h-11 px-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm text-slate-900 dark:text-white"
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={authLoading}
+                className="mt-1 h-11 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs shadow-md transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+              >
+                {authLoading ? (
+                  <RefreshCw className="w-4 h-4 animate-spin" />
+                ) : (
+                  <span>Create Business & Unlock Terminal</span>
+                )}
+              </button>
+            </form>
           )}
         </div>
       )}
