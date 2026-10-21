@@ -15,7 +15,7 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
-import com.example.aurapos.R;
+import com.example.R;
 
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;

@@ -49,7 +49,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onUnlock }) => {
     clearError,
   } = useAuthStore();
 
-  const { isLocked, unlockWithPin, quickUnlockStaff, showBanner } = usePosStore();
+  const { isLocked, unlockWithPin, showBanner } = usePosStore();
 
   // Mode: 'STAFF_PIN' (default everyday POS terminal) or 'BUSINESS_SETUP' (owner / cloud configuration)
   const [viewMode, setViewMode] = useState<'STAFF_PIN' | 'BUSINESS_SETUP'>('STAFF_PIN');
@@ -67,6 +67,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onUnlock }) => {
   const [pinError, setPinError] = useState<string | null>(null);
   const [isVerifying, setIsVerifying] = useState(false);
   const [isLoadingStaff, setIsLoadingStaff] = useState(true);
+  const [mobileTab, setMobileTab] = useState<'PIN' | 'ROSTER'>('PIN');
 
   // Business Form State
   const [email, setEmail] = useState('');
@@ -186,41 +187,6 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onUnlock }) => {
     }
   };
 
-  // 1-Tap Instant Quick Login
-  const handleQuickLogin = async (roleOrUserId: string) => {
-    setIsVerifying(true);
-    setPinError(null);
-
-    try {
-      let result = await quickUnlockStaff?.(roleOrUserId);
-      if (!result || !result.success) {
-        // Fallback to unlockWithPin if needed
-        const defaultPin = roleOrUserId === 'owner' ? '1111' : roleOrUserId === 'cashier' ? '1234' : roleOrUserId === 'kitchen' ? '3333' : '2222';
-        result = await unlockWithPin(defaultPin);
-      }
-
-      if (result && result.success) {
-        setPin('');
-        useAuthStore.setState({ isStandaloneMode: true });
-        if (typeof localStorage !== 'undefined') {
-          localStorage.setItem('aura_standalone_mode', 'true');
-        }
-        usePosStore.setState({ isLocked: false, activeTab: roleOrUserId === 'kitchen' ? 'KOT' : 'CHECKOUT' });
-        usePosStore.getState().refreshCatalogFromCloud();
-
-        const memberName = result.member?.fullName || 'Staff Member';
-        const roleName = (result.member?.role || roleOrUserId || 'staff').toUpperCase();
-        showBanner(`Welcome ${memberName}! Logged in as ${roleName}.`);
-        if (onUnlock) onUnlock();
-      } else {
-        setPinError(result?.error || 'Failed to log in');
-      }
-    } catch (err: any) {
-      setPinError(err.message || 'Login failed');
-    } finally {
-      setIsVerifying(false);
-    }
-  };
 
   // Emergency Lockout Recovery / Reset
   const handleResetLockout = async () => {
@@ -427,11 +393,11 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onUnlock }) => {
           </div>
 
           {/* Quick Guidance Banner */}
-          <div className="mt-4 px-4 py-2.5 rounded-2xl bg-teal-50/70 dark:bg-teal-950/40 border border-teal-200/80 dark:border-teal-800/60 flex items-center justify-between text-xs text-teal-900 dark:text-teal-200">
+          <div className="mt-4 px-3 sm:px-4 py-2 sm:py-2.5 rounded-2xl bg-teal-50/70 dark:bg-teal-950/40 border border-teal-200/80 dark:border-teal-800/60 flex items-center justify-between text-xs text-teal-900 dark:text-teal-200">
             <div className="flex items-center gap-2">
               <Sparkles className="w-4 h-4 text-teal-600 dark:text-teal-400 shrink-0" />
-              <span className="font-medium">
-                Type <strong>1111</strong> for Owner, <strong>1234</strong> for Cashier, or tap <strong>1-Tap Login</strong> on any staff card.
+              <span className="font-medium text-[11px] sm:text-xs">
+                Type <strong>1111</strong> for Owner, <strong>1234</strong> for Cashier, or tap <strong>1-Tap Login</strong>.
               </span>
             </div>
             <span className="hidden sm:inline text-[11px] font-semibold text-teal-600 dark:text-teal-400">
@@ -439,10 +405,36 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onUnlock }) => {
             </span>
           </div>
 
+          {/* Mobile View Mode Switcher (Pinned at top on phones) */}
+          <div className="flex md:hidden items-center bg-slate-100 dark:bg-slate-800 p-1 rounded-2xl mt-3 border border-slate-200 dark:border-slate-700/80">
+            <button
+              type="button"
+              onClick={() => setMobileTab('PIN')}
+              className={`flex-1 py-2 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 ${
+                mobileTab === 'PIN'
+                  ? 'bg-white dark:bg-slate-900 text-teal-600 dark:text-teal-400 shadow-xs'
+                  : 'text-slate-600 dark:text-slate-400'
+              }`}
+            >
+              <span>🔢 Quick PIN Pad</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setMobileTab('ROSTER')}
+              className={`flex-1 py-2 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 ${
+                mobileTab === 'ROSTER'
+                  ? 'bg-white dark:bg-slate-900 text-teal-600 dark:text-teal-400 shadow-xs'
+                  : 'text-slate-600 dark:text-slate-400'
+              }`}
+            >
+              <span>👥 1-Tap Staff ({staffList.length})</span>
+            </button>
+          </div>
+
           {/* Main 2-Column POS Login Body */}
-          <div className="grid grid-cols-1 md:grid-cols-12 gap-6 mt-5 items-start">
+          <div className="grid grid-cols-1 md:grid-cols-12 gap-4 sm:gap-6 mt-4 sm:mt-5 items-start">
             {/* Left Column: Staff Roster Grid with 1-Tap Login */}
-            <div className="md:col-span-7 flex flex-col">
+            <div className={`md:col-span-7 flex flex-col ${mobileTab === 'PIN' ? 'hidden md:flex' : 'flex'}`}>
               <div className="flex items-center justify-between mb-3">
                 <span className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
                   <Users className="w-3.5 h-3.5" />
@@ -512,18 +504,12 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onUnlock }) => {
                           </div>
                         </div>
 
-                        {/* 1-Tap Quick Login Button */}
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleQuickLogin(member.role);
-                          }}
-                          className="mt-2.5 w-full py-1.5 px-2 rounded-xl bg-white dark:bg-slate-900 hover:bg-teal-600 hover:text-white dark:hover:bg-teal-600 text-teal-700 dark:text-teal-300 font-bold text-[11px] border border-teal-300 dark:border-teal-800 flex items-center justify-center gap-1.5 transition-all shadow-2xs"
-                        >
-                          <Unlock className="w-3 h-3" />
-                          <span>1-Tap Login as {badge.label}</span>
-                        </button>
+                        {isSelected && (
+                          <div className="mt-2 pt-1.5 border-t border-teal-200 dark:border-teal-900 text-[10px] text-teal-700 dark:text-teal-300 font-bold flex items-center justify-center gap-1">
+                            <Check className="w-3 h-3 text-teal-600" />
+                            <span>Selected • Enter PIN on keypad</span>
+                          </div>
+                        )}
                       </div>
                     );
                   })}
@@ -533,32 +519,60 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onUnlock }) => {
               {/* Roster Demo Pin Pills */}
               <div className="mt-4 p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800 text-xs">
                 <span className="font-bold text-slate-600 dark:text-slate-300 block mb-1.5">
-                  Demo Credentials Summary:
+                  Default Staff PIN Reference:
                 </span>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center text-xs">
                   <div
-                    onClick={() => handleQuickLogin('owner')}
+                    onClick={() => {
+                      const member = staffList.find((s) => s.role === 'owner');
+                      if (member) {
+                        setSelectedStaff(member);
+                        setPin('');
+                        setPinError(null);
+                      }
+                    }}
                     className="p-1.5 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 cursor-pointer hover:border-amber-400 transition-colors"
                   >
                     <span className="text-slate-400 block text-[10px]">OWNER</span>
                     <strong className="text-amber-600 dark:text-amber-400">PIN 1111</strong>
                   </div>
                   <div
-                    onClick={() => handleQuickLogin('cashier')}
+                    onClick={() => {
+                      const member = staffList.find((s) => s.role === 'cashier');
+                      if (member) {
+                        setSelectedStaff(member);
+                        setPin('');
+                        setPinError(null);
+                      }
+                    }}
                     className="p-1.5 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 cursor-pointer hover:border-teal-400 transition-colors"
                   >
                     <span className="text-slate-400 block text-[10px]">CASHIER</span>
                     <strong className="text-teal-600 dark:text-teal-400">PIN 1234</strong>
                   </div>
                   <div
-                    onClick={() => handleQuickLogin('waiter')}
+                    onClick={() => {
+                      const member = staffList.find((s) => s.role === 'waiter');
+                      if (member) {
+                        setSelectedStaff(member);
+                        setPin('');
+                        setPinError(null);
+                      }
+                    }}
                     className="p-1.5 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 cursor-pointer hover:border-purple-400 transition-colors"
                   >
                     <span className="text-slate-400 block text-[10px]">WAITER</span>
                     <strong className="text-purple-600 dark:text-purple-400">PIN 2222</strong>
                   </div>
                   <div
-                    onClick={() => handleQuickLogin('kitchen')}
+                    onClick={() => {
+                      const member = staffList.find((s) => s.role === 'kitchen');
+                      if (member) {
+                        setSelectedStaff(member);
+                        setPin('');
+                        setPinError(null);
+                      }
+                    }}
                     className="p-1.5 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 cursor-pointer hover:border-orange-400 transition-colors"
                   >
                     <span className="text-slate-400 block text-[10px]">KITCHEN</span>
@@ -568,8 +582,8 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onUnlock }) => {
               </div>
             </div>
 
-            {/* Right Column: 4-Digit Numeric PIN Pad & Quick Chips */}
-            <div className="md:col-span-5 flex flex-col items-center bg-slate-50 dark:bg-slate-800/50 p-5 sm:p-6 rounded-2xl border border-slate-200 dark:border-slate-700/80">
+            {/* Right Column: 4-Digit Numeric PIN Pad */}
+            <div className="col-span-12 md:col-span-5 flex flex-col items-center bg-slate-50 dark:bg-slate-800/50 p-4 sm:p-6 rounded-2xl border border-slate-200 dark:border-slate-700/80 w-full">
               <span className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">
                 Enter 4-Digit Staff PIN
               </span>
@@ -636,34 +650,11 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onUnlock }) => {
                 ))}
               </div>
 
-              {/* Quick Login Chips below Keypad */}
+              {/* Keypad Security Caption */}
               <div className="w-full mt-4 pt-3 border-t border-slate-200 dark:border-slate-700/60 flex flex-col items-center">
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">
-                  Quick Unlock Chips:
+                <span className="text-[11px] text-slate-400 font-medium">
+                  Enter your assigned 4-digit PIN to authenticate
                 </span>
-                <div className="flex flex-wrap gap-1.5 justify-center">
-                  <button
-                    type="button"
-                    onClick={() => handleQuickLogin('owner')}
-                    className="px-2.5 py-1 rounded-lg bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border border-amber-300 dark:border-amber-800 text-[11px] font-bold hover:bg-amber-100 transition-colors shadow-2xs"
-                  >
-                    👑 Owner (1111)
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleQuickLogin('cashier')}
-                    className="px-2.5 py-1 rounded-lg bg-teal-50 dark:bg-teal-950/60 text-teal-700 dark:text-teal-300 border border-teal-300 dark:border-teal-800 text-[11px] font-bold hover:bg-teal-100 transition-colors shadow-2xs"
-                  >
-                    🧾 Cashier (1234)
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleQuickLogin('kitchen')}
-                    className="px-2.5 py-1 rounded-lg bg-orange-50 dark:bg-orange-950/60 text-orange-700 dark:text-orange-300 border border-orange-300 dark:border-orange-800 text-[11px] font-bold hover:bg-orange-100 transition-colors shadow-2xs"
-                  >
-                    👨‍🍳 Kitchen (3333)
-                  </button>
-                </div>
               </div>
             </div>
           </div>

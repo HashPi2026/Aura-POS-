@@ -44,6 +44,18 @@ interface SaleDao {
     @Query("UPDATE sales SET syncStatus = :status, syncAttempts = :attempts, lastSyncError = :error, syncedAt = :syncedAt WHERE id = :id")
     suspend fun updateSyncStatus(id: String, status: String, attempts: Int, error: String?, syncedAt: Long?)
 
+    suspend fun updateSyncStatus(id: String, status: String) {
+        updateSyncStatus(id, status, 1, null, null)
+    }
+
+    suspend fun updateSyncSuccess(id: String, syncedAt: Long) {
+        updateSyncStatus(id, "SYNCED", 1, null, syncedAt)
+    }
+
+    suspend fun updateSyncFailure(id: String, error: String) {
+        updateSyncStatus(id, "FAILED", 1, error, null)
+    }
+
     @Query("SELECT COUNT(*) FROM sales WHERE syncStatus != 'SYNCED'")
     fun getUnsyncedCount(): Flow<Int>
 

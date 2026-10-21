@@ -26,6 +26,10 @@ try {
   console.warn('Could not initialize Supabase PG pool:', err);
 }
 
+export function getPool(): pg.Pool | null {
+  return pool;
+}
+
 function getUuid(id: string, receiptNum?: string): string {
   if (id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) {
     return id;
@@ -64,9 +68,13 @@ export async function pushSaleToSupabase(s: SaleRecord): Promise<boolean> {
   try {
     // 1. Ensure business exists
     await pool.query(`
-      INSERT INTO businesses (id, name, code, business_type, is_active, timezone, currency)
-      VALUES ($1, $2, $3, $4, $5, $6, $7)
-      ON CONFLICT (id) DO NOTHING;
+      INSERT INTO businesses (id, name, code, business_type, is_active, timezone, currency, address, phone, tax_identifier)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+      ON CONFLICT (id) DO UPDATE SET
+        name = EXCLUDED.name,
+        address = EXCLUDED.address,
+        phone = EXCLUDED.phone,
+        tax_identifier = EXCLUDED.tax_identifier;
     `, [
       businessId,
       'Spice Cafe',
@@ -75,6 +83,9 @@ export async function pushSaleToSupabase(s: SaleRecord): Promise<boolean> {
       true,
       'Asia/Kolkata',
       'INR',
+      '100ft Road, Indiranagar, Bengaluru, Karnataka',
+      '+91 80 2520 8900',
+      '29AABCS1234F1Z8',
     ]);
 
     // 2. Insert sale

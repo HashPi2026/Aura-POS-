@@ -4,16 +4,20 @@ import { usePosStore } from '../store/usePosStore';
 import { formatDateTime, formatInr } from '../utils/format';
 import { DailySummaryReport } from './DailySummaryReport';
 import { SalesRevenueTrendChart } from './SalesRevenueTrendChart';
+import { WeeklyRevenueBarChart } from './WeeklyRevenueBarChart';
 
 export const SalesHistoryScreen: React.FC = () => {
   const { sales, viewReceipt } = usePosStore();
 
   return (
     <div className="flex-1 overflow-y-auto p-4 lg:p-6 bg-slate-100 dark:bg-slate-950 flex flex-col gap-5 max-w-7xl mx-auto w-full">
-      {/* 1. 30-Day Revenue Trend Line/Area Chart Dashboard (Recharts) */}
+      {/* 1. Current Week Daily Revenue Bar Chart (Recharts) */}
+      <WeeklyRevenueBarChart sales={sales} />
+
+      {/* 2. Monthly Revenue Trend Line/Area Chart Dashboard (Recharts) */}
       <SalesRevenueTrendChart sales={sales} />
 
-      {/* 2. Daily Summary Report Component */}
+      {/* 3. Daily Summary Report Component */}
       <DailySummaryReport sales={sales} />
 
       {/* 2. Completed Invoices List */}

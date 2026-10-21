@@ -56,21 +56,23 @@ export const MobileBottomNav: React.FC = () => {
   if (visibleItems.length <= 1) return null;
 
   return (
-    <nav className="md:hidden bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 px-1 py-1.5 flex items-center justify-around z-30 select-none pb-safe shrink-0 shadow-lg">
+    <nav className="md:hidden bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-t border-slate-200 dark:border-slate-800 px-0.5 py-1 flex items-center justify-between z-30 select-none pb-safe shrink-0 sticky bottom-0 shadow-lg">
       {visibleItems.map((item) => {
         const isSelected = activeTab === item.tab;
         return (
           <button
             key={item.tab}
             onClick={() => setActiveTab(item.tab)}
-            className={`flex-1 flex flex-col items-center justify-center py-1 rounded-xl transition-all relative min-h-[48px] ${
+            className={`flex-1 flex flex-col items-center justify-center py-1 px-0.5 rounded-lg transition-all relative min-h-[46px] min-w-0 ${
               isSelected
-                ? 'text-brand font-bold'
-                : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 font-medium'
+                ? 'text-brand font-bold bg-brand/10 dark:bg-brand/20'
+                : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 font-medium'
             }`}
           >
-            {item.icon}
-            <span className="text-[10px] sm:text-[11px] mt-0.5">{item.label}</span>
+            <div className="shrink-0">{item.icon}</div>
+            <span className="text-[9px] sm:text-[10px] mt-0.5 tracking-tight truncate max-w-full text-center">
+              {item.label}
+            </span>
           </button>
         );
       })}

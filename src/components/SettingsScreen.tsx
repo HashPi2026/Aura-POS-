@@ -24,6 +24,7 @@ import { usePosStore } from '../store/usePosStore';
 import { useAuthStore } from '../store/useAuthStore';
 import { ThemeSelector } from './ThemeSelector';
 import { AuthModal } from './AuthModal';
+import { StoreProfileSettings } from './StoreProfileSettings';
 import { BusinessType } from '../types/database';
 
 export const SettingsScreen: React.FC = () => {
@@ -71,10 +72,13 @@ export const SettingsScreen: React.FC = () => {
             <span>Cafe Terminal & Hardware Setup</span>
           </h2>
           <p className="text-xs text-slate-500 mt-0.5">
-            {storeName} • {counterName} ({storeAddress})
+            {storeName} • {storeAddress}
           </p>
         </div>
       </div>
+
+      {/* Store Profile & Receipt Details Management */}
+      <StoreProfileSettings />
 
       {/* 0A. Menu & Products Manager Shortcut */}
       <div className="bg-white dark:bg-slate-900 rounded-2xl p-5 border border-slate-200 dark:border-slate-800 shadow-xs flex items-center justify-between gap-4">
@@ -357,51 +361,6 @@ export const SettingsScreen: React.FC = () => {
         </div>
       </div>
 
-      {/* 3. Store & Legal Registration Info */}
-      <div className="bg-white dark:bg-slate-900 rounded-2xl p-5 border border-slate-200 dark:border-slate-800 shadow-xs flex flex-col gap-3">
-        <div className="flex items-center gap-2 mb-1">
-          <Store className="w-5 h-5 text-teal-700 dark:text-teal-400" />
-          <h3 className="font-bold text-base text-slate-900 dark:text-white">Store & Tax Profile</h3>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
-          <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/70 dark:border-slate-700/70 flex justify-between">
-            <span className="text-slate-500">Store Name:</span>
-            <span className="font-bold text-slate-900 dark:text-white">{storeName}</span>
-          </div>
-
-          <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/70 dark:border-slate-700/70 flex justify-between">
-            <span className="text-slate-500">GSTIN:</span>
-            <span className="font-mono font-bold text-slate-900 dark:text-white">{storeGstin}</span>
-          </div>
-
-          <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/70 dark:border-slate-700/70 flex justify-between">
-            <span className="text-slate-500">Terminal & Counter:</span>
-            <span className="font-bold text-slate-900 dark:text-white">
-              {counterName} (Terminal #01)
-            </span>
-          </div>
-
-          <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/70 dark:border-slate-700/70 flex justify-between">
-            <span className="text-slate-500">Cashier:</span>
-            <span className="font-bold text-slate-900 dark:text-white">{cashierName}</span>
-          </div>
-
-          <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/70 dark:border-slate-700/70 flex justify-between">
-            <span className="text-slate-500">GST Rate Applied:</span>
-            <span className="font-bold text-slate-900 dark:text-white">
-              5% Cafe GST (2.5% CGST + 2.5% SGST)
-            </span>
-          </div>
-
-          <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/70 dark:border-slate-700/70 flex justify-between">
-            <span className="text-slate-500">Currency & Format:</span>
-            <span className="font-bold text-slate-900 dark:text-white">
-              INR (₹) Lakhs/Crores grouping
-            </span>
-          </div>
-        </div>
-      </div>
 
       {/* 4. Controls */}
       <div className="flex items-center gap-3">

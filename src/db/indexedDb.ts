@@ -679,3 +679,21 @@ export async function updateSaleSyncStatus(
     await db.put('sales', sale);
   }
 }
+
+export interface StoreProfile {
+  name: string;
+  address: string;
+  phone: string;
+  gstin?: string;
+  updatedAt?: number;
+}
+
+export async function saveStoreProfileToDb(profile: StoreProfile): Promise<void> {
+  const db = await getDb();
+  await db.put('settings', profile, 'store_profile');
+}
+
+export async function getStoreProfileFromDb(): Promise<StoreProfile | null> {
+  const db = await getDb();
+  return (await db.get('settings', 'store_profile')) || null;
+}

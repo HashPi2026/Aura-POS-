@@ -1,4 +1,4 @@
-const CACHE_NAME = 'aura-cafe-v3';
+const CACHE_NAME = 'aura-pos-v25';
 
 self.addEventListener('install', (event) => {
   self.skipWaiting();
@@ -12,7 +12,7 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-// Network-first strategy: Always try fresh network request first.
+// Network-first strategy: Always fetch fresh network assets first.
 // Only fall back to cache when completely offline.
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;

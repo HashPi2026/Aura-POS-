@@ -29,6 +29,9 @@ import {
   replaceAllProducts,
   mergeRemoteSales,
   getDb,
+  StoreProfile,
+  saveStoreProfileToDb,
+  getStoreProfileFromDb,
 } from '../db/indexedDb';
 import { restApi } from '../api/restClient';
 import { ColorTheme } from '../utils/themePresets';
@@ -64,6 +67,7 @@ interface PosState {
   storeName: string;
   storeAddress: string;
   storeGstin: string;
+  storePhone: string;
 
   // Navigation & Theme
   activeTab: ScreenTab;
@@ -166,6 +170,7 @@ interface PosState {
   refreshCatalogFromCloud: () => Promise<void>;
   showBanner: (msg: string) => void;
   dismissBanner: () => void;
+  updateStoreProfile: (profile: { name: string; address: string; phone: string; gstin?: string }) => Promise<void>;
 }
 
 let deferredInstallPrompt: any = null;
@@ -197,10 +202,11 @@ export const usePosStore = create<PosState>((set, get) => ({
 
   isLocked: false,
   cashierName: 'Rahul Patel',
-  counterName: 'Espresso Bar 1',
+  counterName: 'Spice Counter 1',
   storeName: 'Spice Cafe',
   storeAddress: '100ft Road, Indiranagar, Bengaluru, Karnataka',
   storeGstin: '29AABCS1234F1Z8',
+  storePhone: '+91 80 2520 8900',
 
   activeTab: 'CHECKOUT',
   isDarkMode: false,
@@ -287,9 +293,23 @@ export const usePosStore = create<PosState>((set, get) => ({
       // Dynamic business fields — fall back to existing defaults if not yet loaded
       storeName: biz?.name || get().storeName,
       storeAddress: biz?.address || get().storeAddress,
-      storeGstin: biz?.tax_identifier || get().storeGstin,
+      storeGstin: biz?.tax_identifier || (biz as any)?.taxIdentifier || get().storeGstin,
+      storePhone: biz?.phone || get().storePhone,
       cashierName: authUser?.fullName || get().cashierName,
     });
+
+    // Load any locally customized Store Profile from local database (IndexedDB)
+    try {
+      const localProfile = await getStoreProfileFromDb();
+      if (localProfile) {
+        set({
+          storeName: localProfile.name || get().storeName,
+          storeAddress: localProfile.address || get().storeAddress,
+          storePhone: localProfile.phone || get().storePhone,
+          storeGstin: localProfile.gstin || get().storeGstin,
+        });
+      }
+    } catch (_) {}
 
     // Keep POS store in sync whenever the auth store changes
     // (e.g. after staff PIN login, owner sign-in, or standalone mode activation)
@@ -299,7 +319,8 @@ export const usePosStore = create<PosState>((set, get) => ({
       set({
         storeName: b?.name || get().storeName,
         storeAddress: b?.address || get().storeAddress,
-        storeGstin: b?.tax_identifier || get().storeGstin,
+        storeGstin: b?.tax_identifier || (b as any)?.taxIdentifier || get().storeGstin,
+        storePhone: b?.phone || get().storePhone,
         cashierName: u?.fullName || get().cashierName,
       });
     });
@@ -368,6 +389,7 @@ export const usePosStore = create<PosState>((set, get) => ({
           storeName: b.name || get().storeName,
           storeAddress: b.address || get().storeAddress,
           storeGstin: b.taxIdentifier || b.tax_identifier || get().storeGstin,
+          storePhone: b.phone || get().storePhone,
         });
       }
     } catch (err) {
@@ -1037,6 +1059,60 @@ export const usePosStore = create<PosState>((set, get) => ({
       const updatedSales = await getAllSales();
       set({ unsyncedCount: remaining.length, sales: updatedSales });
     }
+  },
+
+  updateStoreProfile: async (profile) => {
+    // 1. Store in IndexedDB local database (persistent offline storage)
+    await saveStoreProfileToDb({
+      name: profile.name,
+      address: profile.address,
+      phone: profile.phone,
+      gstin: profile.gstin,
+      updatedAt: Date.now(),
+    });
+
+    // 2. Store in browser localStorage
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem('aura_store_profile', JSON.stringify(profile));
+    }
+
+    // 3. Update active POS state
+    set({
+      storeName: profile.name,
+      storeAddress: profile.address,
+      storePhone: profile.phone,
+      storeGstin: profile.gstin || get().storeGstin,
+    });
+
+    // 4. Update auth store if business is loaded
+    const authState = useAuthStore.getState();
+    if (authState.currentBusiness) {
+      const updatedBiz = {
+        ...authState.currentBusiness,
+        name: profile.name,
+        address: profile.address,
+        phone: profile.phone,
+        tax_identifier: profile.gstin || authState.currentBusiness.tax_identifier,
+      };
+      useAuthStore.setState({ currentBusiness: updatedBiz });
+      if (typeof localStorage !== 'undefined') {
+        localStorage.setItem('aura_cached_business', JSON.stringify(updatedBiz));
+      }
+    }
+
+    // 5. Sync to backend REST database
+    try {
+      await restApi.business.update({
+        name: profile.name,
+        address: profile.address,
+        phone: profile.phone,
+        taxIdentifier: profile.gstin || get().storeGstin,
+      });
+    } catch (err) {
+      console.warn('Backend business update notice:', err);
+    }
+
+    get().showBanner('Store profile saved to local database & receipt updated!');
   },
 
   showBanner: (msg: string) => {

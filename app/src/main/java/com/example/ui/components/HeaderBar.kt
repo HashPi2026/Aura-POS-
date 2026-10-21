@@ -78,7 +78,8 @@ fun HeaderBar(
     cashierName: String,
     counterName: String,
     onLockTerminal: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    isCompact: Boolean = false
 ) {
     Surface(
         modifier = modifier.fillMaxWidth(),
@@ -86,23 +87,24 @@ fun HeaderBar(
         tonalElevation = 3.dp,
         shadowElevation = 2.dp
     ) {
-        Column(modifier = Modifier.fillMaxWidth()) {
+        if (isCompact) {
+            // Native Mobile HeaderBar: Compact, sleek, and never overflows horizontally
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 10.dp),
+                    .padding(horizontal = 12.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                // Left Brand & Counter Info
+                // Left: Compact Brand Pill
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     Box(
                         modifier = Modifier
-                            .size(42.dp)
-                            .clip(RoundedCornerShape(10.dp))
+                            .size(34.dp)
+                            .clip(RoundedCornerShape(8.dp))
                             .background(MaterialTheme.colorScheme.primary),
                         contentAlignment = Alignment.Center
                     ) {
@@ -110,7 +112,7 @@ fun HeaderBar(
                             text = "A",
                             color = MaterialTheme.colorScheme.onPrimary,
                             fontWeight = FontWeight.Black,
-                            fontSize = 22.sp
+                            fontSize = 18.sp
                         )
                     }
 
@@ -118,19 +120,19 @@ fun HeaderBar(
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(
                                 text = "Aura POS",
-                                style = MaterialTheme.typography.titleMedium,
+                                style = MaterialTheme.typography.titleSmall,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.onSurface
                             )
-                            Spacer(modifier = Modifier.width(8.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
                             Surface(
                                 shape = RoundedCornerShape(4.dp),
                                 color = MaterialTheme.colorScheme.surfaceVariant
                             ) {
                                 Text(
                                     text = counterName,
-                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-                                    fontSize = 11.sp,
+                                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp),
+                                    fontSize = 10.sp,
                                     fontWeight = FontWeight.SemiBold,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
@@ -138,121 +140,265 @@ fun HeaderBar(
                         }
                         Text(
                             text = "Retail Terminal • India",
-                            fontSize = 11.sp,
+                            fontSize = 10.sp,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
 
-                // Middle: Persistent Connection Chip & Printer Chip
+                // Right: Compact Connection Pill, Theme Toggle & Lock Icon
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
-                    // Persistent Connection Status Chip
-                    ConnectionStatusChip(
-                        isOnline = isOnline,
-                        isSyncing = isSyncing,
-                        unsyncedCount = unsyncedCount,
-                        onToggle = onToggleOnline
-                    )
+                    // Compact Connection Status Chip
+                    Surface(
+                        shape = RoundedCornerShape(16.dp),
+                        color = if (isSyncing) MaterialTheme.colorScheme.primaryContainer
+                        else if (isOnline) GreenSuccessContainer
+                        else AmberOfflineContainer,
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(16.dp))
+                            .clickable { onToggleOnline() }
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(6.dp)
+                                    .clip(CircleShape)
+                                    .background(if (isOnline) GreenSuccess else AmberOffline)
+                            )
+                            Text(
+                                text = if (isSyncing) "Sync" else if (isOnline) "Online" else "Offline",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = if (isOnline) GreenSuccessText else AmberOfflineText
+                            )
+                            if (unsyncedCount > 0) {
+                                Surface(
+                                    shape = CircleShape,
+                                    color = AmberOffline
+                                ) {
+                                    Text(
+                                        text = "$unsyncedCount",
+                                        color = Color.White,
+                                        fontSize = 9.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
+                                    )
+                                }
+                            }
+                        }
+                    }
 
-                    // Bluetooth Printer Status Chip
-                    PrinterStatusChip(
-                        connected = printerConnected,
-                        onClick = onTogglePrinter
-                    )
-                }
-
-                // Right: Navigation Tabs, Cashier Badge, Dark Mode, Lock
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    // Nav Buttons
-                    NavTabButton(
-                        title = "Checkout",
-                        icon = Icons.Default.PointOfSale,
-                        isSelected = activeTab == ScreenTab.CHECKOUT,
-                        testTag = "nav_checkout",
-                        onClick = { onTabSelected(ScreenTab.CHECKOUT) }
-                    )
-
-                    NavTabButton(
-                        title = "Queue",
-                        icon = Icons.Default.Sync,
-                        isSelected = activeTab == ScreenTab.SYNC_QUEUE,
-                        badgeCount = unsyncedCount,
-                        testTag = "nav_queue",
-                        onClick = { onTabSelected(ScreenTab.SYNC_QUEUE) }
-                    )
-
-                    NavTabButton(
-                        title = "History",
-                        icon = Icons.Default.History,
-                        isSelected = activeTab == ScreenTab.SALES_HISTORY,
-                        testTag = "nav_history",
-                        onClick = { onTabSelected(ScreenTab.SALES_HISTORY) }
-                    )
-
-                    NavTabButton(
-                        title = "Settings",
-                        icon = Icons.Default.Settings,
-                        isSelected = activeTab == ScreenTab.SETTINGS,
-                        testTag = "nav_settings",
-                        onClick = { onTabSelected(ScreenTab.SETTINGS) }
-                    )
-
-                    Spacer(modifier = Modifier.width(4.dp))
-
-                    // Dark/Light Mode
+                    // Theme Toggle Button
                     IconButton(
                         onClick = onToggleDarkMode,
-                        modifier = Modifier.testTag("theme_toggle_button")
+                        modifier = Modifier
+                            .size(36.dp)
+                            .testTag("theme_toggle_button")
                     ) {
                         Icon(
                             imageVector = if (isDarkMode) Icons.Default.LightMode else Icons.Default.DarkMode,
                             contentDescription = "Toggle Theme",
+                            modifier = Modifier.size(18.dp),
                             tint = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
 
-                    // Cashier Profile & Lock
-                    Row(
+                    // Cashier Avatar / Quick Lock
+                    Box(
                         modifier = Modifier
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(MaterialTheme.colorScheme.surfaceVariant)
+                            .size(34.dp)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f))
                             .clickable { onLockTerminal() }
-                            .padding(horizontal = 8.dp, vertical = 6.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            .testTag("lock_terminal_button"),
+                        contentAlignment = Alignment.Center
                     ) {
-                        Box(
-                            modifier = Modifier
-                                .size(24.dp)
-                                .clip(CircleShape)
-                                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = cashierName.take(1),
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.primary
-                            )
-                        }
-                        Text(
-                            text = cashierName.split(" ").firstOrNull() ?: cashierName,
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Medium,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
                         Icon(
                             imageVector = Icons.Default.Lock,
                             contentDescription = "Lock Terminal",
-                            modifier = Modifier.size(14.dp),
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            modifier = Modifier.size(16.dp),
+                            tint = MaterialTheme.colorScheme.primary
                         )
+                    }
+                }
+            }
+        } else {
+            // Desktop / Tablet Landscape HeaderBar
+            Column(modifier = Modifier.fillMaxWidth()) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    // Left Brand & Counter Info
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(42.dp)
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(MaterialTheme.colorScheme.primary),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = "A",
+                                color = MaterialTheme.colorScheme.onPrimary,
+                                fontWeight = FontWeight.Black,
+                                fontSize = 22.sp
+                            )
+                        }
+
+                        Column {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    text = "Aura POS",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Surface(
+                                    shape = RoundedCornerShape(4.dp),
+                                    color = MaterialTheme.colorScheme.surfaceVariant
+                                ) {
+                                    Text(
+                                        text = counterName,
+                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+                            Text(
+                                text = "Retail Terminal • India",
+                                fontSize = 11.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+
+                    // Middle: Persistent Connection Chip & Printer Chip
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        // Persistent Connection Status Chip
+                        ConnectionStatusChip(
+                            isOnline = isOnline,
+                            isSyncing = isSyncing,
+                            unsyncedCount = unsyncedCount,
+                            onToggle = onToggleOnline
+                        )
+
+                        // Bluetooth Printer Status Chip
+                        PrinterStatusChip(
+                            connected = printerConnected,
+                            onClick = onTogglePrinter
+                        )
+                    }
+
+                    // Right: Navigation Tabs, Cashier Badge, Dark Mode, Lock
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        // Nav Buttons
+                        NavTabButton(
+                            title = "Checkout",
+                            icon = Icons.Default.PointOfSale,
+                            isSelected = activeTab == ScreenTab.CHECKOUT,
+                            testTag = "nav_checkout",
+                            onClick = { onTabSelected(ScreenTab.CHECKOUT) }
+                        )
+
+                        NavTabButton(
+                            title = "Queue",
+                            icon = Icons.Default.Sync,
+                            isSelected = activeTab == ScreenTab.SYNC_QUEUE,
+                            badgeCount = unsyncedCount,
+                            testTag = "nav_queue",
+                            onClick = { onTabSelected(ScreenTab.SYNC_QUEUE) }
+                        )
+
+                        NavTabButton(
+                            title = "History",
+                            icon = Icons.Default.History,
+                            isSelected = activeTab == ScreenTab.SALES_HISTORY,
+                            testTag = "nav_history",
+                            onClick = { onTabSelected(ScreenTab.SALES_HISTORY) }
+                        )
+
+                        NavTabButton(
+                            title = "Settings",
+                            icon = Icons.Default.Settings,
+                            isSelected = activeTab == ScreenTab.SETTINGS,
+                            testTag = "nav_settings",
+                            onClick = { onTabSelected(ScreenTab.SETTINGS) }
+                        )
+
+                        Spacer(modifier = Modifier.width(4.dp))
+
+                        // Dark/Light Mode
+                        IconButton(
+                            onClick = onToggleDarkMode,
+                            modifier = Modifier.testTag("theme_toggle_button")
+                        ) {
+                            Icon(
+                                imageVector = if (isDarkMode) Icons.Default.LightMode else Icons.Default.DarkMode,
+                                contentDescription = "Toggle Theme",
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+
+                        // Cashier Profile & Lock
+                        Row(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(MaterialTheme.colorScheme.surfaceVariant)
+                                .clickable { onLockTerminal() }
+                                .padding(horizontal = 8.dp, vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(24.dp)
+                                    .clip(CircleShape)
+                                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = cashierName.take(1),
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                            Text(
+                                text = cashierName.split(" ").firstOrNull() ?: cashierName,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Icon(
+                                imageVector = Icons.Default.Lock,
+                                contentDescription = "Lock Terminal",
+                                modifier = Modifier.size(14.dp),
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
                     }
                 }
             }

@@ -107,7 +107,8 @@ fun CheckoutScreen(
     }
 
     BoxWithConstraints(modifier = modifier.fillMaxSize()) {
-        val isLandscape = maxWidth > 860.dp
+        val screenMaxWidth = maxWidth
+        val isLandscape = screenMaxWidth > 860.dp
 
         if (isLandscape) {
             // Landscape Tablet Split Layout (62% Products, 38% Cart)
@@ -133,7 +134,7 @@ fun CheckoutScreen(
                         products = filteredProducts,
                         cartQuantityMap = cartQuantityMap,
                         onProductClick = onAddToCart,
-                        columnsCount = if (maxWidth > 1100.dp) 3 else 2
+                        columnsCount = if (screenMaxWidth > 1100.dp) 3 else 2
                     )
                 }
 
@@ -169,19 +170,30 @@ fun CheckoutScreen(
                 }
             }
         } else {
-            // Portrait Tablet / Mobile responsive view
-            Column(modifier = Modifier.fillMaxSize().padding(12.dp)) {
-                ProductSearchAndCategories(
-                    searchQuery = searchQuery,
-                    onSearchChange = onSearchQueryChange,
-                    categories = categories,
-                    selectedCategory = selectedCategory,
-                    onCategorySelect = onCategorySelect
-                )
+            // Portrait Mobile view with fixed header & fixed docked footer
+            Column(modifier = Modifier.fillMaxSize()) {
+                // Top Search & Category Filters (Fixed)
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp, vertical = 8.dp)
+                ) {
+                    ProductSearchAndCategories(
+                        searchQuery = searchQuery,
+                        onSearchChange = onSearchQueryChange,
+                        categories = categories,
+                        selectedCategory = selectedCategory,
+                        onCategorySelect = onCategorySelect
+                    )
+                }
 
-                Spacer(modifier = Modifier.height(8.dp))
-
-                Box(modifier = Modifier.weight(1f)) {
+                // Middle: Scrollable Product Grid
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp)
+                ) {
                     ProductGrid(
                         products = filteredProducts,
                         cartQuantityMap = cartQuantityMap,
@@ -190,15 +202,19 @@ fun CheckoutScreen(
                     )
                 }
 
-                // Bottom Docked Cart Summary
+                // Bottom Docked Cart Action Bar (Fixed, never moves or jumps)
                 Surface(
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
+                    shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
                     color = MaterialTheme.colorScheme.surface,
                     tonalElevation = 6.dp,
-                    shadowElevation = 6.dp
+                    shadowElevation = 8.dp
                 ) {
-                    Column(modifier = Modifier.padding(12.dp)) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 14.dp, vertical = 10.dp)
+                    ) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
@@ -207,31 +223,31 @@ fun CheckoutScreen(
                             Text(
                                 text = "Current sale (${cartTotals.totalItems} items)",
                                 fontWeight = FontWeight.Bold,
-                                fontSize = 14.sp
+                                fontSize = 13.sp
                             )
                             Text(
                                 text = FormatUtils.formatInr(cartTotals.totalAmount),
                                 fontWeight = FontWeight.Black,
-                                fontSize = 18.sp,
+                                fontSize = 17.sp,
                                 fontFamily = FontFamily.Monospace,
                                 color = MaterialTheme.colorScheme.primary
                             )
                         }
 
-                        Spacer(modifier = Modifier.height(8.dp))
+                        Spacer(modifier = Modifier.height(6.dp))
 
                         Button(
                             onClick = onChargeClick,
                             enabled = cartItems.isNotEmpty(),
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(50.dp)
+                                .height(46.dp)
                                 .testTag("charge_button_portrait"),
                             shape = RoundedCornerShape(10.dp)
                         ) {
                             Text(
-                                text = "Charge ${FormatUtils.formatInr(cartTotals.totalAmount)}",
-                                fontSize = 16.sp,
+                                text = if (cartItems.isEmpty()) "Add items to charge" else "Charge ${FormatUtils.formatInr(cartTotals.totalAmount)}",
+                                fontSize = 15.sp,
                                 fontWeight = FontWeight.Bold
                             )
                         }

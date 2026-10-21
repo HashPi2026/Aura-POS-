@@ -47,8 +47,14 @@ async function main() {
   const businessId = '11111111-1111-1111-1111-111111111111';
   console.log('Inserting Business: Spice Cafe...');
   await client.query(`
-    INSERT INTO businesses (id, name, code, business_type, is_active, timezone, currency)
-    VALUES ($1, $2, $3, $4, $5, $6, $7);
+    ALTER TABLE businesses
+    ADD COLUMN IF NOT EXISTS address text,
+    ADD COLUMN IF NOT EXISTS phone text,
+    ADD COLUMN IF NOT EXISTS tax_identifier text;
+  `);
+  await client.query(`
+    INSERT INTO businesses (id, name, code, business_type, is_active, timezone, currency, address, phone, tax_identifier)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10);
   `, [
     businessId,
     'Spice Cafe',
@@ -57,6 +63,9 @@ async function main() {
     true,
     'Asia/Kolkata',
     'INR',
+    '100ft Road, Indiranagar, Bengaluru, Karnataka',
+    '+91 80 2520 8900',
+    '29AABCS1234F1Z8',
   ]);
 
   // 3. Insert Location

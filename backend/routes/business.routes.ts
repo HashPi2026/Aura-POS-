@@ -10,8 +10,34 @@ router.get('/', (req: Request, res: Response) => {
 });
 
 // PUT /api/business
-router.put('/', (req: Request, res: Response) => {
+router.put('/', async (req: Request, res: Response) => {
   const updated = db.updateBusiness(req.body);
+
+  // Synchronize to cloud Supabase if connected
+  try {
+    const { getPool } = await import('../db/supabaseClient.ts');
+    const pool = getPool();
+    if (pool) {
+      await pool.query(`
+        UPDATE businesses
+        SET name = COALESCE($1, name),
+            address = COALESCE($2, address),
+            phone = COALESCE($3, phone),
+            tax_identifier = COALESCE($4, tax_identifier)
+        WHERE id = $5 OR name = $6;
+      `, [
+        updated.name,
+        updated.address,
+        updated.phone,
+        updated.taxIdentifier,
+        updated.id,
+        'Spice Cafe',
+      ]);
+    }
+  } catch (err) {
+    console.warn('Notice: Could not sync business update to Supabase:', err);
+  }
+
   res.json({ success: true, business: updated });
 });
 

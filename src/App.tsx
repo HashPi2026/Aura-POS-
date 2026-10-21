@@ -63,8 +63,8 @@ export const App: React.FC = () => {
   const isOfflineBanner = bannerMessage?.toLowerCase().includes('saved on this device');
 
   return (
-    <div className="flex flex-col h-screen w-screen overflow-hidden bg-slate-100 dark:bg-slate-950 font-sans">
-      {/* Top Persistent App Header */}
+    <div className="flex flex-col h-[100dvh] w-screen overflow-hidden bg-slate-100 dark:bg-slate-950 font-sans">
+      {/* Top Persistent App Header (Fixed at top) */}
       <Header />
 
       {/* Main Tab Screen View */}

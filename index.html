@@ -15,7 +15,7 @@
   </head>
   <body class="bg-slate-100 text-slate-900 dark:bg-slate-950 dark:text-slate-100 select-none overflow-x-hidden antialiased">
     <div id="root"></div>
-    <script type="module" src="/frontend/src/main.tsx"></script>
+    <script type="module" src="/src/main.tsx"></script>
     <script>
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
@@ -24,6 +24,13 @@
           }).catch((err) => {
             console.log('SW registration error:', err);
           });
+        });
+        let refreshing = false;
+        navigator.serviceWorker.addEventListener('controllerchange', () => {
+          if (!refreshing) {
+            refreshing = true;
+            window.location.reload();
+          }
         });
       }
     </script>

@@ -12,6 +12,7 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -23,9 +24,17 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.PointOfSale
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Sync
+import androidx.compose.material3.Badge
+import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -110,43 +119,115 @@ fun PosApp(viewModel: PosViewModel) {
         }
     }
 
-    if (isLocked) {
-        LoginPinScreen(
-            storeName = viewModel.storeName,
-            counterName = viewModel.counterName,
-            cashierName = viewModel.currentCashier,
-            onUnlock = { pin -> viewModel.unlockWithPin(pin) }
-        )
-    } else {
-        Scaffold(
-            modifier = Modifier
-                .fillMaxSize()
-                .statusBarsPadding()
-                .navigationBarsPadding(),
-            topBar = {
-                HeaderBar(
-                    activeTab = activeTab,
-                    onTabSelected = { viewModel.setActiveTab(it) },
-                    isOnline = isOnline,
-                    isSyncing = isSyncing,
-                    unsyncedCount = unsyncedCount,
-                    onToggleOnline = { viewModel.toggleOnlineStatus() },
-                    printerConnected = printerConnected,
-                    onTogglePrinter = { viewModel.togglePrinterConnection() },
-                    isDarkMode = isDarkMode,
-                    onToggleDarkMode = { viewModel.toggleDarkMode() },
-                    cashierName = viewModel.currentCashier,
-                    counterName = viewModel.counterName,
-                    onLockTerminal = { viewModel.lockTerminal() }
-                )
-            }
-        ) { innerPadding ->
-            Box(
+    BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+        val isCompact = maxWidth < 650.dp
+
+        if (isLocked) {
+            LoginPinScreen(
+                storeName = viewModel.storeName,
+                counterName = viewModel.counterName,
+                cashierName = viewModel.currentCashier,
+                onUnlock = { pin -> viewModel.unlockWithPin(pin) }
+            )
+        } else {
+            Scaffold(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(innerPadding)
-                    .background(MaterialTheme.colorScheme.background)
-            ) {
+                    .statusBarsPadding()
+                    .navigationBarsPadding(),
+                topBar = {
+                    HeaderBar(
+                        activeTab = activeTab,
+                        onTabSelected = { viewModel.setActiveTab(it) },
+                        isOnline = isOnline,
+                        isSyncing = isSyncing,
+                        unsyncedCount = unsyncedCount,
+                        onToggleOnline = { viewModel.toggleOnlineStatus() },
+                        printerConnected = printerConnected,
+                        onTogglePrinter = { viewModel.togglePrinterConnection() },
+                        isDarkMode = isDarkMode,
+                        onToggleDarkMode = { viewModel.toggleDarkMode() },
+                        cashierName = viewModel.currentCashier,
+                        counterName = viewModel.counterName,
+                        onLockTerminal = { viewModel.lockTerminal() },
+                        isCompact = isCompact
+                    )
+                },
+                bottomBar = {
+                    if (isCompact) {
+                        Surface(
+                            tonalElevation = 6.dp,
+                            shadowElevation = 8.dp,
+                            color = MaterialTheme.colorScheme.surface
+                        ) {
+                            NavigationBar(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .testTag("mobile_bottom_nav"),
+                                containerColor = MaterialTheme.colorScheme.surface,
+                                tonalElevation = 4.dp
+                            ) {
+                                NavigationBarItem(
+                                    selected = activeTab == ScreenTab.CHECKOUT,
+                                    onClick = { viewModel.setActiveTab(ScreenTab.CHECKOUT) },
+                                    icon = {
+                                        Icon(Icons.Default.PointOfSale, contentDescription = "Checkout")
+                                    },
+                                    label = {
+                                        Text("Checkout", fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                                    },
+                                    modifier = Modifier.testTag("nav_checkout_bottom")
+                                )
+                                NavigationBarItem(
+                                    selected = activeTab == ScreenTab.SYNC_QUEUE,
+                                    onClick = { viewModel.setActiveTab(ScreenTab.SYNC_QUEUE) },
+                                    icon = {
+                                        if (unsyncedCount > 0) {
+                                            BadgedBox(badge = { Badge { Text("$unsyncedCount") } }) {
+                                                Icon(Icons.Default.Sync, contentDescription = "Queue")
+                                            }
+                                        } else {
+                                            Icon(Icons.Default.Sync, contentDescription = "Queue")
+                                        }
+                                    },
+                                    label = {
+                                        Text("Queue", fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                                    },
+                                    modifier = Modifier.testTag("nav_queue_bottom")
+                                )
+                                NavigationBarItem(
+                                    selected = activeTab == ScreenTab.SALES_HISTORY,
+                                    onClick = { viewModel.setActiveTab(ScreenTab.SALES_HISTORY) },
+                                    icon = {
+                                        Icon(Icons.Default.History, contentDescription = "History")
+                                    },
+                                    label = {
+                                        Text("History", fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                                    },
+                                    modifier = Modifier.testTag("nav_history_bottom")
+                                )
+                                NavigationBarItem(
+                                    selected = activeTab == ScreenTab.SETTINGS,
+                                    onClick = { viewModel.setActiveTab(ScreenTab.SETTINGS) },
+                                    icon = {
+                                        Icon(Icons.Default.Settings, contentDescription = "Settings")
+                                    },
+                                    label = {
+                                        Text("Settings", fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                                    },
+                                    modifier = Modifier.testTag("nav_settings_bottom")
+                                )
+                            }
+                        }
+                    }
+                }
+            ) { innerPadding ->
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(innerPadding)
+                        .background(MaterialTheme.colorScheme.background)
+                ) {
                 // Tab Content
                 when (activeTab) {
                     ScreenTab.CHECKOUT -> {
@@ -280,3 +361,5 @@ fun PosApp(viewModel: PosViewModel) {
         }
     }
 }
+}
+

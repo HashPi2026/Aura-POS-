@@ -37,7 +37,7 @@ const DEFAULT_BUSINESS: Business = {
   currency: 'INR',
   timezone: 'Asia/Kolkata',
   address: '100ft Road, Indiranagar, Bengaluru, Karnataka',
-  phone: '+91 80 4123 5678',
+  phone: '+91 80 2520 8900',
 };
 
 const DEFAULT_USER: AuthUser = {

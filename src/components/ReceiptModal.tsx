@@ -24,6 +24,7 @@ export const ReceiptModal: React.FC = () => {
     storeName,
     storeAddress,
     storeGstin,
+    storePhone,
   } = usePosStore();
 
   if (!showReceiptModal || !completedSale) return null;
@@ -89,8 +90,8 @@ export const ReceiptModal: React.FC = () => {
             {/* Store Title */}
             <div className="text-center font-bold text-sm tracking-wider uppercase">{storeName}</div>
             <div className="text-center text-[10px] text-slate-600">{storeAddress}</div>
-            <div className="text-center text-[10px] text-slate-600">GSTIN: {storeGstin}</div>
-            <div className="text-center text-[10px] text-slate-600">Ph: +91 80 2520 8900</div>
+            {storeGstin && <div className="text-center text-[10px] text-slate-600">GSTIN: {storeGstin}</div>}
+            <div className="text-center text-[10px] text-slate-600">Ph: {storePhone || '+91 80 2520 8900'}</div>
 
             <div className="border-b border-dashed border-slate-400 my-2"></div>
 
@@ -105,9 +106,7 @@ export const ReceiptModal: React.FC = () => {
             </div>
             <div className="flex justify-between text-[11px]">
               <span>Cashier:</span>
-              <span>
-                {completedSale.cashierName} ({completedSale.counterName})
-              </span>
+              <span>{completedSale.cashierName}</span>
             </div>
             <div className="flex justify-between text-[11px]">
               <span>Payment:</span>
@@ -237,7 +236,8 @@ export const ReceiptModal: React.FC = () => {
       <div id="thermal-receipt-print-area" className="hidden print:block">
         <div style={{ textAlign: 'center', fontWeight: 'bold', fontSize: '13px' }}>{storeName}</div>
         <div style={{ textAlign: 'center', fontSize: '9px' }}>{storeAddress}</div>
-        <div style={{ textAlign: 'center', fontSize: '9px' }}>GSTIN: {storeGstin}</div>
+        {storeGstin && <div style={{ textAlign: 'center', fontSize: '9px' }}>GSTIN: {storeGstin}</div>}
+        <div style={{ textAlign: 'center', fontSize: '9px' }}>Ph: {storePhone || '+91 80 2520 8900'}</div>
         <div style={{ borderBottom: '1px dashed #000', margin: '4px 0' }}></div>
         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px' }}>
           <span>Bill No:</span>

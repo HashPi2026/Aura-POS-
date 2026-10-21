@@ -5,7 +5,7 @@
     "businessType": "cafe",
     "taxIdentifier": "29AABCS1234F1Z8",
     "address": "100ft Road, Indiranagar, Bengaluru, Karnataka",
-    "phone": "+91 80 4123 5678",
+    "phone": "+91 80 2520 8900",
     "currency": "INR",
     "timezone": "Asia/Kolkata",
     "taxRate": 5
@@ -131,16 +131,93 @@
     }
   ],
   "tables": [
-    { "id": "T1", "name": "Table 1", "area": "Indoor Spice Lounge", "seats": 2, "status": "AVAILABLE" },
-    { "id": "T2", "name": "Table 2", "area": "Indoor Spice Lounge", "seats": 4, "status": "OCCUPIED" },
-    { "id": "T3", "name": "Table 3", "area": "Indoor Spice Lounge", "seats": 4, "status": "AVAILABLE" },
-    { "id": "T4", "name": "Table 4 (Booth)", "area": "Indoor Spice Lounge", "seats": 6, "status": "AVAILABLE" },
-    { "id": "T5", "name": "Patio P1", "area": "Alfresco Garden", "seats": 2, "status": "AVAILABLE" },
-    { "id": "T6", "name": "Patio P2", "area": "Alfresco Garden", "seats": 4, "status": "AVAILABLE" },
-    { "id": "T7", "name": "Roastery Bar B1", "area": "Live Brew Counter", "seats": 1, "status": "AVAILABLE" },
-    { "id": "T8", "name": "Roastery Bar B2", "area": "Live Brew Counter", "seats": 1, "status": "AVAILABLE" }
+    {
+      "id": "T1",
+      "name": "Table 1",
+      "area": "Indoor Spice Lounge",
+      "seats": 2,
+      "status": "AVAILABLE"
+    },
+    {
+      "id": "T2",
+      "name": "Table 2",
+      "area": "Indoor Spice Lounge",
+      "seats": 4,
+      "status": "OCCUPIED"
+    },
+    {
+      "id": "T3",
+      "name": "Table 3",
+      "area": "Indoor Spice Lounge",
+      "seats": 4,
+      "status": "AVAILABLE"
+    },
+    {
+      "id": "T4",
+      "name": "Table 4 (Booth)",
+      "area": "Indoor Spice Lounge",
+      "seats": 6,
+      "status": "AVAILABLE"
+    },
+    {
+      "id": "T5",
+      "name": "Patio P1",
+      "area": "Alfresco Garden",
+      "seats": 2,
+      "status": "AVAILABLE"
+    },
+    {
+      "id": "T6",
+      "name": "Patio P2",
+      "area": "Alfresco Garden",
+      "seats": 4,
+      "status": "AVAILABLE"
+    },
+    {
+      "id": "T7",
+      "name": "Roastery Bar B1",
+      "area": "Live Brew Counter",
+      "seats": 1,
+      "status": "AVAILABLE"
+    },
+    {
+      "id": "T8",
+      "name": "Roastery Bar B2",
+      "area": "Live Brew Counter",
+      "seats": 1,
+      "status": "AVAILABLE"
+    }
   ],
   "sales": [
+    {
+      "id": "test_sale_1792561541345_0.1834629657725333",
+      "receiptNumber": "AUR-CF-TEST-1792561541345",
+      "timestamp": 1792561541345,
+      "cashierName": "Barista Ramesh",
+      "counterName": "Espresso Bar 1",
+      "orderType": "DINE_IN",
+      "tableName": "Table 1",
+      "items": [
+        {
+          "productId": "prod_cappuccino",
+          "name": "Artisanal Cappuccino",
+          "price": 180,
+          "quantity": 1
+        }
+      ],
+      "itemCount": 1,
+      "subtotal": 180,
+      "cgst": 4.5,
+      "sgst": 4.5,
+      "totalGst": 9,
+      "roundOff": 0,
+      "totalAmount": 189,
+      "paymentMethod": "CASH",
+      "amountTendered": 200,
+      "changeDue": 11,
+      "syncStatus": "SYNCED",
+      "syncedAt": 1792561541348
+    },
     {
       "id": "66666666-6666-6666-6666-666666660004",
       "receiptNumber": "SPC-2026-1004",
@@ -150,9 +227,24 @@
       "orderType": "DINE_IN",
       "tableName": "Table 4 (Booth)",
       "items": [
-        { "productId": "55555555-5555-5555-5555-555555550004", "name": "Cinnamon Dark Roast Latte", "price": 210, "quantity": 2 },
-        { "productId": "55555555-5555-5555-5555-555555550006", "name": "Peri Peri Paneer Sourdough Toast", "price": 270, "quantity": 2 },
-        { "productId": "55555555-5555-5555-5555-555555550008", "name": "Ginger Lemon Mint Fizz", "price": 140, "quantity": 2 }
+        {
+          "productId": "55555555-5555-5555-5555-555555550004",
+          "name": "Cinnamon Dark Roast Latte",
+          "price": 210,
+          "quantity": 2
+        },
+        {
+          "productId": "55555555-5555-5555-5555-555555550006",
+          "name": "Peri Peri Paneer Sourdough Toast",
+          "price": 270,
+          "quantity": 2
+        },
+        {
+          "productId": "55555555-5555-5555-5555-555555550008",
+          "name": "Ginger Lemon Mint Fizz",
+          "price": 140,
+          "quantity": 2
+        }
       ],
       "itemCount": 6,
       "subtotal": 1240,
@@ -177,8 +269,18 @@
       "orderType": "TAKEAWAY",
       "tableName": null,
       "items": [
-        { "productId": "55555555-5555-5555-5555-555555550002", "name": "Spice Signature Masala Chai Pot", "price": 130, "quantity": 1 },
-        { "productId": "55555555-5555-5555-5555-555555550007", "name": "Masala Chai Tres Leches Slice", "price": 220, "quantity": 1 }
+        {
+          "productId": "55555555-5555-5555-5555-555555550002",
+          "name": "Spice Signature Masala Chai Pot",
+          "price": 130,
+          "quantity": 1
+        },
+        {
+          "productId": "55555555-5555-5555-5555-555555550007",
+          "name": "Masala Chai Tres Leches Slice",
+          "price": 220,
+          "quantity": 1
+        }
       ],
       "itemCount": 2,
       "subtotal": 350,
@@ -202,8 +304,18 @@
       "orderType": "DINE_IN",
       "tableName": "Patio P2",
       "items": [
-        { "productId": "55555555-5555-5555-5555-555555550003", "name": "Saffron Pistachio Cold Brew", "price": 240, "quantity": 1 },
-        { "productId": "55555555-5555-5555-5555-555555550006", "name": "Peri Peri Paneer Sourdough Toast", "price": 270, "quantity": 1 }
+        {
+          "productId": "55555555-5555-5555-5555-555555550003",
+          "name": "Saffron Pistachio Cold Brew",
+          "price": 240,
+          "quantity": 1
+        },
+        {
+          "productId": "55555555-5555-5555-5555-555555550006",
+          "name": "Peri Peri Paneer Sourdough Toast",
+          "price": 270,
+          "quantity": 1
+        }
       ],
       "itemCount": 2,
       "subtotal": 510,
@@ -227,8 +339,18 @@
       "orderType": "DINE_IN",
       "tableName": "Table 1",
       "items": [
-        { "productId": "55555555-5555-5555-5555-555555550001", "name": "Cardamom Spiced Cappuccino", "price": 190, "quantity": 2 },
-        { "productId": "55555555-5555-5555-5555-555555550005", "name": "Spiced Butter Croissant", "price": 150, "quantity": 2 }
+        {
+          "productId": "55555555-5555-5555-5555-555555550001",
+          "name": "Cardamom Spiced Cappuccino",
+          "price": 190,
+          "quantity": 2
+        },
+        {
+          "productId": "55555555-5555-5555-5555-555555550005",
+          "name": "Spiced Butter Croissant",
+          "price": 150,
+          "quantity": 2
+        }
       ],
       "itemCount": 4,
       "subtotal": 680,
@@ -253,8 +375,18 @@
       "tableName": "Table 2",
       "orderType": "DINE_IN",
       "items": [
-        { "productId": "55555555-5555-5555-5555-555555550001", "name": "Cardamom Spiced Cappuccino", "quantity": 2, "notes": "Oat milk, extra cardamom sprinkle" },
-        { "productId": "55555555-5555-5555-5555-555555550005", "name": "Spiced Butter Croissant", "quantity": 1, "notes": "Warmed up crisp" }
+        {
+          "productId": "55555555-5555-5555-5555-555555550001",
+          "name": "Cardamom Spiced Cappuccino",
+          "quantity": 2,
+          "notes": "Oat milk, extra cardamom sprinkle"
+        },
+        {
+          "productId": "55555555-5555-5555-5555-555555550005",
+          "name": "Spiced Butter Croissant",
+          "quantity": 1,
+          "notes": "Warmed up crisp"
+        }
       ],
       "status": "PREPARING",
       "specialInstructions": "Spice Chef Special: Table 2 VIP"

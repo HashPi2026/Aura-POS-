@@ -25,7 +25,7 @@ class SyncSalesWorker(
         val database = AppDatabase.getInstance(applicationContext)
         val salesDao = database.saleDao()
 
-        val unsyncedSales = salesDao.getUnsyncedSales()
+        val unsyncedSales = salesDao.getUnsyncedSalesList()
         if (unsyncedSales.isEmpty()) {
             return Result.success()
         }
