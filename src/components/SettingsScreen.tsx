@@ -1,35 +1,22 @@
-import React, { useState } from 'react';
+import React from 'react';
 import {
   Printer,
   Wifi,
   WifiOff,
   AlertTriangle,
-  Store,
   Lock,
   Moon,
   Sun,
-  ShieldCheck,
   Coffee,
-  UtensilsCrossed,
   Check,
-  Package,
   ArrowRight,
-  Smartphone,
   Download,
-  ExternalLink,
-  Cloud,
-  UserCheck,
 } from 'lucide-react';
 import { usePosStore } from '../store/usePosStore';
-import { useAuthStore } from '../store/useAuthStore';
 import { ThemeSelector } from './ThemeSelector';
-import { AuthModal } from './AuthModal';
 import { StoreProfileSettings } from './StoreProfileSettings';
-import { BusinessType } from '../types/database';
 
 export const SettingsScreen: React.FC = () => {
-  const [showAuthModal, setShowAuthModal] = useState(false);
-  const { user, currentBusiness, currentRole, isConfigured } = useAuthStore();
   const {
     storeName,
     storeAddress,
@@ -105,72 +92,7 @@ export const SettingsScreen: React.FC = () => {
         </button>
       </div>
 
-      {/* 0B. Supabase Cloud Database & Multi-Tenant Onboarding */}
-      <div className="bg-white dark:bg-slate-900 rounded-2xl p-5 border border-slate-200 dark:border-slate-800 shadow-xs flex flex-col gap-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
-              isConfigured && user
-                ? 'bg-emerald-50 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400'
-                : 'bg-sky-50 dark:bg-sky-950 text-sky-600 dark:text-sky-400'
-            }`}>
-              <Cloud className="w-5 h-5" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h3 className="font-bold text-base text-slate-900 dark:text-white">
-                  Cloud Backend & Multi-Tenant Setup
-                </h3>
-                <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                  isConfigured
-                    ? (user ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300' : 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300')
-                    : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400'
-                }`}>
-                  {isConfigured ? (user ? 'Connected' : 'Sign-in Required') : 'Local Offline Mode'}
-                </span>
-              </div>
-              <p className="text-xs text-slate-500 mt-0.5">
-                {currentBusiness
-                  ? `Active Tenant: ${currentBusiness.name} • Role: ${currentRole?.toUpperCase() || 'STAFF'}`
-                  : 'Manage multiple businesses, staff roles, and synchronized cloud sales.'}
-              </p>
-            </div>
-          </div>
-
-          <button
-            onClick={() => setShowAuthModal(true)}
-            className="h-10 px-4 rounded-xl bg-brand hover:bg-brand-hover text-white text-xs font-bold flex items-center gap-2 shadow-2xs transition-all active:scale-[0.98] shrink-0 self-start sm:self-auto"
-          >
-            <UserCheck className="w-4 h-4" />
-            <span>{user ? 'Manage Staff & Businesses' : 'Connect / Sign In'}</span>
-          </button>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs pt-1 border-t border-slate-100 dark:border-slate-800">
-          <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/70 dark:border-slate-700/70">
-            <span className="text-[10px] text-slate-400 font-bold uppercase block">Authentication</span>
-            <span className="font-semibold text-slate-800 dark:text-slate-200 truncate block mt-0.5">
-              {user ? user.email : 'Not logged in (Offline cashier)'}
-            </span>
-          </div>
-
-          <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/70 dark:border-slate-700/70">
-            <span className="text-[10px] text-slate-400 font-bold uppercase block">Business Tenant</span>
-            <span className="font-semibold text-slate-800 dark:text-slate-200 truncate block mt-0.5">
-              {currentBusiness ? `${currentBusiness.name} (${currentBusiness.business_type})` : storeName}
-            </span>
-          </div>
-
-          <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/70 dark:border-slate-700/70">
-            <span className="text-[10px] text-slate-400 font-bold uppercase block">Staff Role & Permissions</span>
-            <span className="font-semibold text-slate-800 dark:text-slate-200 truncate block mt-0.5">
-              {currentRole ? `Role: ${currentRole}` : 'Cashier (Local)'}
-            </span>
-          </div>
-        </div>
-      </div>
-
-      {/* 0C. Counter Color Theme Selector */}
+      {/* 0B. Counter Color Theme Selector */}
       <ThemeSelector />
 
       {/* 1. Bluetooth Thermal Printer Configuration */}
@@ -380,9 +302,6 @@ export const SettingsScreen: React.FC = () => {
           <span>Lock Cashier Terminal</span>
         </button>
       </div>
-
-      {/* Cloud Authentication & Multi-Tenant Onboarding Modal */}
-      <AuthModal isOpen={showAuthModal} onClose={() => setShowAuthModal(false)} />
     </div>
   );
 };

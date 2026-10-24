@@ -22,6 +22,11 @@ export interface Database {
           currency: string;
           timezone: string;
           tax_identifier: string | null;
+          address: string | null;
+          phone: string | null;
+          owner_name: string | null;
+          owner_phone: string | null;
+          owner_email: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -32,6 +37,11 @@ export interface Database {
           currency?: string;
           timezone?: string;
           tax_identifier?: string | null;
+          address?: string | null;
+          phone?: string | null;
+          owner_name?: string | null;
+          owner_phone?: string | null;
+          owner_email?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -42,6 +52,11 @@ export interface Database {
           currency?: string;
           timezone?: string;
           tax_identifier?: string | null;
+          address?: string | null;
+          phone?: string | null;
+          owner_name?: string | null;
+          owner_phone?: string | null;
+          owner_email?: string | null;
           updated_at?: string;
         };
       };

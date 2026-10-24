@@ -222,68 +222,68 @@ export const DailySummaryReport: React.FC<DailySummaryReportProps> = ({ sales })
       </div>
 
       {/* 2. Top-Level Summary Metric Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3">
         {/* Gross Sales */}
-        <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/80 flex flex-col justify-between">
+        <div className="p-3 sm:p-4 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/80 flex flex-col justify-between">
           <div className="flex items-center justify-between text-xs text-slate-500">
-            <span>Gross Sales</span>
-            <TrendingUp className="w-4 h-4 text-brand" />
+            <span className="font-semibold text-[11px] sm:text-xs">Gross Sales</span>
+            <TrendingUp className="w-4 h-4 text-brand shrink-0" />
           </div>
-          <div className="mt-2">
-            <div className="font-mono font-black text-xl sm:text-2xl text-slate-900 dark:text-white">
+          <div className="mt-1.5 sm:mt-2">
+            <div className="font-mono font-black text-lg sm:text-2xl text-slate-900 dark:text-white truncate">
               {formatInr(report.totalGrossRevenue)}
             </div>
-            <div className="text-[11px] text-slate-500 mt-0.5">
+            <div className="text-[10px] sm:text-[11px] text-slate-500 mt-0.5 truncate">
               Net: {formatInr(report.totalSubtotal)} • Tax: {formatInr(report.totalTax)}
             </div>
           </div>
         </div>
 
         {/* Orders Count & AOV */}
-        <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/80 flex flex-col justify-between">
+        <div className="p-3 sm:p-4 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/80 flex flex-col justify-between">
           <div className="flex items-center justify-between text-xs text-slate-500">
-            <span>Total Invoices</span>
-            <Receipt className="w-4 h-4 text-sky-600" />
+            <span className="font-semibold text-[11px] sm:text-xs">Total Invoices</span>
+            <Receipt className="w-4 h-4 text-sky-600 shrink-0" />
           </div>
-          <div className="mt-2">
-            <div className="font-mono font-black text-xl sm:text-2xl text-slate-900 dark:text-white">
+          <div className="mt-1.5 sm:mt-2">
+            <div className="font-mono font-black text-lg sm:text-2xl text-slate-900 dark:text-white truncate">
               {report.orderCount}
             </div>
-            <div className="text-[11px] text-slate-500 mt-0.5">
-              Avg Order Value: {formatInr(report.averageOrderValue)}
+            <div className="text-[10px] sm:text-[11px] text-slate-500 mt-0.5 truncate">
+              Avg AOV: {formatInr(report.averageOrderValue)}
             </div>
           </div>
         </div>
 
         {/* Total Item Volume Sold */}
-        <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/80 flex flex-col justify-between">
+        <div className="p-3 sm:p-4 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/80 flex flex-col justify-between">
           <div className="flex items-center justify-between text-xs text-slate-500">
-            <span>Item Volume Sold</span>
-            <Package className="w-4 h-4 text-amber-600" />
+            <span className="font-semibold text-[11px] sm:text-xs">Item Volume</span>
+            <Package className="w-4 h-4 text-amber-600 shrink-0" />
           </div>
-          <div className="mt-2">
-            <div className="font-mono font-black text-xl sm:text-2xl text-slate-900 dark:text-white">
+          <div className="mt-1.5 sm:mt-2">
+            <div className="font-mono font-black text-lg sm:text-2xl text-slate-900 dark:text-white truncate">
               {report.totalUnitsSold}{' '}
               <span className="text-xs font-normal text-slate-500">units</span>
             </div>
-            <div className="text-[11px] text-slate-500 mt-0.5">
-              Avg {report.averageItemsPerOrder.toFixed(1)} items / order
+            <div className="text-[10px] sm:text-[11px] text-slate-500 mt-0.5 truncate">
+              Avg {report.averageItemsPerOrder.toFixed(1)} / order
             </div>
           </div>
         </div>
 
         {/* Tax Collected */}
-        <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/80 flex flex-col justify-between">
+        <div className="p-3 sm:p-4 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/80 flex flex-col justify-between">
           <div className="flex items-center justify-between text-xs text-slate-500">
-            <span>Total GST Collected</span>
-            <Sparkles className="w-4 h-4 text-emerald-600" />
+            <span className="font-semibold text-[11px] sm:text-xs">GST Collected</span>
+            <Sparkles className="w-4 h-4 text-emerald-600 shrink-0" />
           </div>
-          <div className="mt-2">
-            <div className="font-mono font-black text-xl sm:text-2xl text-slate-900 dark:text-white">
+          <div className="mt-1.5 sm:mt-2">
+            <div className="font-mono font-black text-lg sm:text-2xl text-slate-900 dark:text-white truncate">
               {formatInr(report.totalTax)}
             </div>
-            <div className="text-[11px] text-slate-500 mt-0.5">
-              CGST + SGST (5% Cafe GST)
+            <div className="text-[10px] sm:text-[11px] text-slate-500 mt-0.5 truncate">
+              CGST + SGST (5% Cafe)
             </div>
           </div>
         </div>
@@ -334,70 +334,76 @@ export const DailySummaryReport: React.FC<DailySummaryReportProps> = ({ sales })
           </div>
 
           {/* Payment Method Cards */}
-          <div className="grid grid-cols-3 gap-2 text-xs pt-1">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-2.5 text-xs pt-1">
             {/* CASH */}
-            <div className="p-3 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 flex flex-col gap-1">
+            <div className="p-3 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 flex sm:flex-col items-center sm:items-start justify-between sm:justify-start gap-1">
               <div className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 font-bold">
-                <Banknote className="w-3.5 h-3.5" />
+                <Banknote className="w-4 h-4 shrink-0" />
                 <span>Cash</span>
               </div>
-              <div className="font-mono font-bold text-slate-900 dark:text-white mt-1">
-                {formatInr(report.paymentMap.CASH?.amount || 0)}
-              </div>
-              <div className="text-[10px] text-slate-400">
-                {report.paymentMap.CASH?.count || 0} bills •{' '}
-                {report.totalGrossRevenue > 0
-                  ? Math.round(
-                      ((report.paymentMap.CASH?.amount || 0) /
-                        report.totalGrossRevenue) *
-                        100
-                    )
-                  : 0}
-                %
+              <div className="text-right sm:text-left">
+                <div className="font-mono font-bold text-sm sm:text-base text-slate-900 dark:text-white">
+                  {formatInr(report.paymentMap.CASH?.amount || 0)}
+                </div>
+                <div className="text-[10px] text-slate-400">
+                  {report.paymentMap.CASH?.count || 0} bills •{' '}
+                  {report.totalGrossRevenue > 0
+                    ? Math.round(
+                        ((report.paymentMap.CASH?.amount || 0) /
+                          report.totalGrossRevenue) *
+                          100
+                      )
+                    : 0}
+                  %
+                </div>
               </div>
             </div>
 
             {/* UPI */}
-            <div className="p-3 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 flex flex-col gap-1">
+            <div className="p-3 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 flex sm:flex-col items-center sm:items-start justify-between sm:justify-start gap-1">
               <div className="flex items-center gap-1.5 text-teal-600 dark:text-teal-400 font-bold">
-                <QrCode className="w-3.5 h-3.5" />
+                <QrCode className="w-4 h-4 shrink-0" />
                 <span>UPI / QR</span>
               </div>
-              <div className="font-mono font-bold text-slate-900 dark:text-white mt-1">
-                {formatInr(report.paymentMap.UPI?.amount || 0)}
-              </div>
-              <div className="text-[10px] text-slate-400">
-                {report.paymentMap.UPI?.count || 0} bills •{' '}
-                {report.totalGrossRevenue > 0
-                  ? Math.round(
-                      ((report.paymentMap.UPI?.amount || 0) /
-                        report.totalGrossRevenue) *
-                        100
-                    )
-                  : 0}
-                %
+              <div className="text-right sm:text-left">
+                <div className="font-mono font-bold text-sm sm:text-base text-slate-900 dark:text-white">
+                  {formatInr(report.paymentMap.UPI?.amount || 0)}
+                </div>
+                <div className="text-[10px] text-slate-400">
+                  {report.paymentMap.UPI?.count || 0} bills •{' '}
+                  {report.totalGrossRevenue > 0
+                    ? Math.round(
+                        ((report.paymentMap.UPI?.amount || 0) /
+                          report.totalGrossRevenue) *
+                          100
+                      )
+                    : 0}
+                  %
+                </div>
               </div>
             </div>
 
             {/* CARD */}
-            <div className="p-3 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 flex flex-col gap-1">
+            <div className="p-3 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 flex sm:flex-col items-center sm:items-start justify-between sm:justify-start gap-1">
               <div className="flex items-center gap-1.5 text-indigo-600 dark:text-indigo-400 font-bold">
-                <CreditCard className="w-3.5 h-3.5" />
+                <CreditCard className="w-4 h-4 shrink-0" />
                 <span>Card</span>
               </div>
-              <div className="font-mono font-bold text-slate-900 dark:text-white mt-1">
-                {formatInr(report.paymentMap.CARD?.amount || 0)}
-              </div>
-              <div className="text-[10px] text-slate-400">
-                {report.paymentMap.CARD?.count || 0} bills •{' '}
-                {report.totalGrossRevenue > 0
-                  ? Math.round(
-                      ((report.paymentMap.CARD?.amount || 0) /
-                        report.totalGrossRevenue) *
-                        100
-                    )
-                  : 0}
-                %
+              <div className="text-right sm:text-left">
+                <div className="font-mono font-bold text-sm sm:text-base text-slate-900 dark:text-white">
+                  {formatInr(report.paymentMap.CARD?.amount || 0)}
+                </div>
+                <div className="text-[10px] text-slate-400">
+                  {report.paymentMap.CARD?.count || 0} bills •{' '}
+                  {report.totalGrossRevenue > 0
+                    ? Math.round(
+                        ((report.paymentMap.CARD?.amount || 0) /
+                          report.totalGrossRevenue) *
+                          100
+                      )
+                    : 0}
+                  %
+                </div>
               </div>
             </div>
           </div>

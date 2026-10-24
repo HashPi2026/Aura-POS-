@@ -21,15 +21,21 @@ import {
   RefreshCw,
   Sparkles,
   Unlock,
-  Database,
   Check,
   ExternalLink,
+  MapPin,
+  Phone,
+  User,
+  FileText,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
 import { useAuthStore } from '../store/useAuthStore';
 import { usePosStore } from '../store/usePosStore';
 import { staffPinService, StaffPinMember, DEFAULT_ROLE_PINS } from '../services/staffPinService';
 import { UserRole, BusinessType } from '../types/database';
 import { restApi } from '../api/restClient';
+import { KwikioAppIcon } from './KwikioLogo';
 
 interface LoginScreenProps {
   onUnlock?: () => void;
@@ -45,19 +51,18 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onUnlock }) => {
     signUpWithEmail,
     signOut,
     createBusiness,
-    enableStandaloneMode,
     clearError,
   } = useAuthStore();
 
   const { isLocked, unlockWithPin, showBanner } = usePosStore();
 
-  // Mode: 'STAFF_PIN' (default everyday POS terminal) or 'BUSINESS_SETUP' (owner / cloud configuration)
-  const [viewMode, setViewMode] = useState<'STAFF_PIN' | 'BUSINESS_SETUP'>('STAFF_PIN');
+  // Mode: 'STAFF_PIN' (everyday POS terminal with active business) or 'BUSINESS_SETUP' (owner login / registration)
+  const [viewMode, setViewMode] = useState<'STAFF_PIN' | 'BUSINESS_SETUP'>(
+    user ? 'STAFF_PIN' : 'BUSINESS_SETUP'
+  );
 
-  // Business Setup Tabs
-  const [bizTab, setBizTab] = useState<'SIGN_IN' | 'CLOUD_DB' | 'REGISTER' | 'STANDALONE'>('SIGN_IN');
-  const [dbTesting, setDbTesting] = useState(false);
-  const [dbStatusMsg, setDbStatusMsg] = useState<string | null>(null);
+  // Business Setup Tabs: Strictly Sign In and New Store Registration (Admin database & offline tabs removed)
+  const [bizTab, setBizTab] = useState<'SIGN_IN' | 'REGISTER'>('SIGN_IN');
   const [showSwitchForm, setShowSwitchForm] = useState(false);
 
   // Staff PIN State
@@ -72,10 +77,27 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onUnlock }) => {
   // Business Form State
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showSignInPassword, setShowSignInPassword] = useState(false);
   const [fullName, setFullName] = useState('');
   const [bizName, setBizName] = useState('');
   const [bizType, setBizType] = useState<BusinessType>('cafe');
+  const [bizAddress, setBizAddress] = useState('');
+  const [ownerName, setOwnerName] = useState('');
+  const [ownerPhone, setOwnerPhone] = useState('');
+  const [ownerEmail, setOwnerEmail] = useState('');
+  const [regPassword, setRegPassword] = useState('');
+  const [showRegPassword, setShowRegPassword] = useState(false);
   const [bizGstin, setBizGstin] = useState('');
+
+  // Auto-sync owner info with current user if signed in, or force business setup if unauthenticated
+  useEffect(() => {
+    if (user) {
+      if (!ownerName) setOwnerName(user.fullName || '');
+      if (!ownerEmail) setOwnerEmail(user.email || '');
+    } else {
+      setViewMode('BUSINESS_SETUP');
+    }
+  }, [user]);
 
   const businessId = currentBusiness?.id || '00000000-0000-0000-0000-000000000001';
 
@@ -219,13 +241,14 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onUnlock }) => {
 
   // 1-Tap Unlock for Connected Owner
   const handleUnlockAsConnectedOwner = () => {
-    useAuthStore.setState({ isStandaloneMode: true });
-    if (typeof localStorage !== 'undefined') {
-      localStorage.setItem('aura_standalone_mode', 'true');
-    }
-    usePosStore.setState({ isLocked: false, activeTab: 'CHECKOUT' });
+    const ownerDisplayName = user?.fullName || currentBusiness?.ownerName || 'Store Owner';
+    usePosStore.setState({
+      isLocked: false,
+      activeTab: 'CHECKOUT',
+      cashierName: ownerDisplayName,
+    });
     usePosStore.getState().refreshCatalogFromCloud();
-    showBanner(`Welcome ${user?.fullName || 'Rahul Patel'}! POS terminal unlocked.`);
+    showBanner(`Welcome ${ownerDisplayName}! POS terminal unlocked.`);
     if (onUnlock) onUnlock();
   };
 
@@ -236,53 +259,53 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onUnlock }) => {
     clearError();
   };
 
-  // Test Supabase Database Connection & Sync
-  const handleTestSupabaseSync = async () => {
-    setDbTesting(true);
-    setDbStatusMsg('Testing connection to Supabase PostgreSQL (hwdxpvmypxnpfiamcmvs)...');
-    try {
-      const res = await restApi.supabase.pushAll();
-      if (res.success) {
-        setDbStatusMsg(`Connected! ${res.message || 'Supabase PostgreSQL is in sync.'}`);
-        showBanner('Supabase database sync confirmed!');
-      } else {
-        setDbStatusMsg(`Notice: ${res.error || 'Connection active'}`);
-      }
-    } catch (err: any) {
-      setDbStatusMsg(`Status: ${err.message || 'Operational'}`);
-    } finally {
-      setDbTesting(false);
-    }
-  };
-
   // Business Registration
   const handleOwnerRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     clearError();
-    if (!user) {
-      const signupRes = await signUpWithEmail(email, password, fullName);
-      if (!signupRes.success) return;
-      if (signupRes.needsConfirmation) return;
+
+    const targetBizName = bizName.trim();
+    if (!targetBizName) {
+      showBanner('Please provide a business or café name');
+      return;
     }
 
-    const bizRes = await createBusiness(bizName, bizType, bizGstin);
+    const targetAddress = bizAddress.trim();
+    const targetOwnerName = ownerName.trim() || fullName.trim() || 'Store Owner';
+    const targetOwnerPhone = ownerPhone.trim();
+    const targetOwnerEmail = (ownerEmail || email).trim().toLowerCase();
+
+    if (!targetOwnerEmail) {
+      showBanner('Please provide owner email address');
+      return;
+    }
+
+    if (!regPassword || regPassword.length < 6) {
+      showBanner('Please provide an owner password (minimum 6 characters)');
+      return;
+    }
+
+    const bizRes = await createBusiness(
+      targetBizName,
+      bizType,
+      bizGstin.trim(),
+      targetAddress,
+      targetOwnerName,
+      targetOwnerPhone,
+      targetOwnerEmail,
+      regPassword
+    );
+
     if (bizRes.success) {
       useAuthStore.setState({ isStandaloneMode: true });
       if (typeof localStorage !== 'undefined') {
         localStorage.setItem('aura_standalone_mode', 'true');
       }
       usePosStore.setState({ isLocked: false, activeTab: 'CHECKOUT' });
-      showBanner(`Business "${bizName}" created & POS terminal unlocked!`);
+      usePosStore.getState().refreshCatalogFromCloud();
+      showBanner(`Business "${targetBizName}" registered in Supabase & POS terminal unlocked!`);
       if (onUnlock) onUnlock();
     }
-  };
-
-  // Activate Standalone Mode
-  const handleActivateStandalone = () => {
-    enableStandaloneMode();
-    usePosStore.setState({ isLocked: false, activeTab: 'CHECKOUT' });
-    showBanner('Standalone Offline Café Mode enabled! POS terminal unlocked.');
-    if (onUnlock) onUnlock();
   };
 
   // Helper for Role Badges
@@ -361,12 +384,10 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onUnlock }) => {
           {/* Top Café Header & Mode Switch */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-5 border-b border-slate-100 dark:border-slate-800 gap-3">
             <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-2xl bg-teal-600 text-white flex items-center justify-center font-bold shadow-md shrink-0">
-                <Coffee className="w-6 h-6" />
-              </div>
+              <KwikioAppIcon size={48} />
               <div>
                 <h1 className="font-extrabold text-lg sm:text-xl text-slate-900 dark:text-white tracking-tight">
-                  {currentBusiness?.name || 'Aura Café & Roastery'}
+                  {currentBusiness?.name || 'Kwikio POS Terminal'}
                 </h1>
                 <p className="text-xs text-slate-500 flex items-center gap-2">
                   <span>Terminal #1</span>
@@ -666,28 +687,44 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onUnlock }) => {
         <div className="bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 max-w-lg w-full p-6 sm:p-7 flex flex-col animate-scaleUp">
           {/* Header */}
           <div className="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-slate-800">
-            <button
-              onClick={() => setViewMode('STAFF_PIN')}
-              className="flex items-center gap-1.5 text-xs font-bold text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 px-2.5 py-1.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-            >
-              <ArrowLeft className="w-4 h-4" />
-              <span>Back to Staff Terminal</span>
-            </button>
-            <div className="w-9 h-9 rounded-xl bg-teal-600 text-white flex items-center justify-center">
+            {user ? (
+              <button
+                onClick={() => setViewMode('STAFF_PIN')}
+                className="flex items-center gap-1.5 text-xs font-bold text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 px-2.5 py-1.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+              >
+                <ArrowLeft className="w-4 h-4" />
+                <span>Back to Staff Terminal</span>
+              </button>
+            ) : (
+              <div className="flex items-center gap-2.5">
+                <KwikioAppIcon size={34} />
+                <div>
+                  <span className="font-extrabold text-sm text-slate-900 dark:text-white block leading-tight">
+                    Kwikio POS
+                  </span>
+                  <span className="text-[10px] text-teal-600 dark:text-teal-400 font-bold uppercase tracking-wider">
+                    SaaS Cloud Terminal
+                  </span>
+                </div>
+              </div>
+            )}
+            <div className="w-9 h-9 rounded-xl bg-teal-600 text-white flex items-center justify-center shrink-0 shadow-xs">
               <Store className="w-5 h-5" />
             </div>
           </div>
 
           <div className="mt-4">
             <h2 className="text-lg font-bold text-slate-900 dark:text-white">
-              Business & Store Setup
+              {user ? 'Store & Business Management' : 'Sign In or Register Store'}
             </h2>
             <p className="text-xs text-slate-500 mt-0.5">
-              Connect your cloud business account or manage store terminal mode.
+              {user
+                ? 'Manage active business session or switch owner account.'
+                : 'Sign in with your store credentials or create a new business to begin.'}
             </p>
           </div>
 
-          {/* Tab Selector */}
+          {/* Tab Selector: Strictly Sign In & Register */}
           <div className="flex items-center gap-1.5 p-1 bg-slate-100 dark:bg-slate-800 rounded-2xl mt-5">
             <button
               type="button"
@@ -695,41 +732,13 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onUnlock }) => {
                 clearError();
                 setBizTab('SIGN_IN');
               }}
-              className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all ${
+              className={`flex-1 py-2.5 rounded-xl text-xs font-bold transition-all ${
                 bizTab === 'SIGN_IN'
                   ? 'bg-white dark:bg-slate-900 text-teal-700 dark:text-teal-300 shadow-xs'
                   : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-300'
               }`}
             >
-              Sign In Owner
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                clearError();
-                setBizTab('CLOUD_DB');
-              }}
-              className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all ${
-                bizTab === 'CLOUD_DB'
-                  ? 'bg-white dark:bg-slate-900 text-teal-700 dark:text-teal-300 shadow-xs'
-                  : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-300'
-              }`}
-            >
-              Cloud Database
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                clearError();
-                setBizTab('STANDALONE');
-              }}
-              className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all ${
-                bizTab === 'STANDALONE'
-                  ? 'bg-white dark:bg-slate-900 text-teal-700 dark:text-teal-300 shadow-xs'
-                  : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-300'
-              }`}
-            >
-              Offline Mode
+              Sign In
             </button>
             <button
               type="button"
@@ -737,13 +746,13 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onUnlock }) => {
                 clearError();
                 setBizTab('REGISTER');
               }}
-              className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all ${
+              className={`flex-1 py-2.5 rounded-xl text-xs font-bold transition-all ${
                 bizTab === 'REGISTER'
                   ? 'bg-white dark:bg-slate-900 text-teal-700 dark:text-teal-300 shadow-xs'
                   : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-300'
               }`}
             >
-              New Store
+              New Store / Register
             </button>
           </div>
 
@@ -770,7 +779,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onUnlock }) => {
                   </div>
 
                   <p className="text-slate-700 dark:text-slate-300">
-                    Owner: <strong>{user.fullName || 'Rahul Patel'}</strong> ({user.email})
+                    Owner: <strong>{user.fullName || currentBusiness.ownerName || 'Store Owner'}</strong> ({user.email})
                   </p>
                   <p className="text-slate-500 text-[11px]">
                     Type: {(currentBusiness.business_type || (currentBusiness as any).businessType || 'cafe').toUpperCase()} • Currency: {currentBusiness.currency || 'INR'} • Timezone: {currentBusiness.timezone || 'Asia/Kolkata'}
@@ -783,7 +792,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onUnlock }) => {
                       className="w-full py-2.5 rounded-xl bg-teal-600 text-white font-bold text-xs hover:bg-teal-700 shadow-xs flex items-center justify-center gap-2"
                     >
                       <Unlock className="w-4 h-4" />
-                      <span>Unlock POS Terminal as Rahul Patel (Owner)</span>
+                      <span>Unlock POS Terminal as {user.fullName || currentBusiness.ownerName || 'Store Owner'} (Owner)</span>
                     </button>
 
                     <div className="flex items-center gap-2">
@@ -853,13 +862,21 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onUnlock }) => {
                     <div className="relative">
                       <KeyRound className="w-4 h-4 text-slate-400 absolute left-3 top-3.5" />
                       <input
-                        type="password"
+                        type={showSignInPassword ? 'text' : 'password'}
                         required
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
                         placeholder="Spicecafe@123"
-                        className="w-full h-11 pl-9 pr-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm text-slate-900 dark:text-white"
+                        className="w-full h-11 pl-9 pr-10 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm text-slate-900 dark:text-white"
                       />
+                      <button
+                        type="button"
+                        onClick={() => setShowSignInPassword(!showSignInPassword)}
+                        className="absolute right-3 top-3.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                        title={showSignInPassword ? 'Hide password' : 'Show password'}
+                      >
+                        {showSignInPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
                     </div>
                   </div>
 
@@ -892,168 +909,184 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onUnlock }) => {
             </div>
           )}
 
-          {/* TAB 2: CLOUD DATABASE & SUPABASE POSTGRESQL */}
-          {bizTab === 'CLOUD_DB' && (
-            <div className="mt-4 flex flex-col gap-3">
-              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 text-xs flex flex-col gap-2.5">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2 font-bold text-slate-900 dark:text-white text-sm">
-                    <Database className="w-4 h-4 text-teal-600" />
-                    <span>Supabase Cloud PostgreSQL</span>
-                  </div>
-                  <span className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950 border border-emerald-300 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 font-bold text-[10px]">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                    Operational
-                  </span>
-                </div>
-
-                <div className="text-[11px] text-slate-600 dark:text-slate-300 space-y-1">
-                  <div><strong>Host:</strong> db.hwdxpvmypxnpfiamcmvs.supabase.co:5432</div>
-                  <div><strong>Project ID:</strong> hwdxpvmypxnpfiamcmvs</div>
-                  <div><strong>Database:</strong> postgres (public.sales, public.products)</div>
-                  <div><strong>Direct Sync:</strong> Enabled via REST & Backend Pool</div>
-                </div>
-
-                {dbStatusMsg && (
-                  <div className="p-2.5 rounded-xl bg-teal-50 dark:bg-teal-950/60 border border-teal-200 dark:border-teal-800 text-[11px] font-semibold text-teal-800 dark:text-teal-200">
-                    {dbStatusMsg}
-                  </div>
-                )}
-
-                <button
-                  type="button"
-                  disabled={dbTesting}
-                  onClick={handleTestSupabaseSync}
-                  className="mt-1 py-2.5 rounded-xl bg-teal-600 hover:bg-teal-700 disabled:opacity-50 text-white font-bold text-xs shadow-xs flex items-center justify-center gap-2"
-                >
-                  {dbTesting ? (
-                    <RefreshCw className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <RefreshCw className="w-4 h-4" />
-                  )}
-                  <span>Test Database Connection & Sync All Sales</span>
-                </button>
-              </div>
-
-              <div className="px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800/80 text-[11px] text-slate-500 flex items-center justify-between">
-                <span>Receipts auto-sync to public.sales</span>
-                <span className="font-semibold text-teal-600">Zero Data Loss</span>
-              </div>
-            </div>
-          )}
-
-          {/* TAB 3: STANDALONE OFFLINE MODE */}
-          {bizTab === 'STANDALONE' && (
-            <div className="mt-4 p-5 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 text-xs flex flex-col gap-3">
-              <div className="flex items-center gap-2 font-bold text-slate-900 dark:text-white text-sm">
-                <Store className="w-4 h-4 text-teal-600" />
-                <span>Run in Standalone Café Mode</span>
-              </div>
-              <p className="text-slate-500 text-xs leading-relaxed">
-                Uses high-performance local IndexedDB on this tablet or browser with complete menu, tables floor plan, kitchen KOT tickets, and receipt generation. No network needed.
-              </p>
-              <button
-                type="button"
-                onClick={handleActivateStandalone}
-                className="mt-1 h-11 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs shadow-sm flex items-center justify-center gap-2"
-              >
-                <CheckCircle2 className="w-4 h-4" />
-                <span>Activate Standalone Mode & Unlock POS</span>
-              </button>
-            </div>
-          )}
-
-          {/* TAB 4: REGISTER NEW BUSINESS */}
+          {/* TAB 2: REGISTER NEW STORE / BUSINESS */}
           {bizTab === 'REGISTER' && (
-            <form onSubmit={handleOwnerRegister} className="mt-4 flex flex-col gap-3">
-              {!user && (
-                <>
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                      Owner Full Name
-                    </label>
+            <form onSubmit={handleOwnerRegister} className="mt-4 flex flex-col gap-3.5">
+              {/* SECTION A: STORE / BUSINESS DETAILS */}
+              <div className="flex flex-col gap-2.5 p-3 sm:p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/80 dark:border-slate-700/80">
+                <div className="flex items-center gap-2 text-xs font-bold text-slate-800 dark:text-slate-200">
+                  <Store className="w-4 h-4 text-teal-600" />
+                  <span>Store & Location Details</span>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    Business / Café Name *
+                  </label>
+                  <div className="relative">
                     <input
                       type="text"
                       required
-                      value={fullName}
-                      onChange={(e) => setFullName(e.target.value)}
-                      placeholder="Rahul Patel"
-                      className="w-full h-11 px-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm text-slate-900 dark:text-white"
+                      value={bizName}
+                      onChange={(e) => setBizName(e.target.value)}
+                      placeholder="e.g. Spice Cafe & Roastery"
+                      className="w-full h-10 px-3 pl-9 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs text-slate-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-teal-500"
                     />
+                    <Store className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                      Business Type
+                    </label>
+                    <div className="relative">
+                      <select
+                        value={bizType}
+                        onChange={(e) => setBizType(e.target.value as BusinessType)}
+                        className="w-full h-10 px-3 pl-9 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs text-slate-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-teal-500"
+                      >
+                        <option value="cafe">Café & Coffee Bar</option>
+                        <option value="bakery">Bakery & Patisserie</option>
+                        <option value="qsr">Quick Service Restaurant (QSR)</option>
+                        <option value="restaurant">Fine Dining Restaurant</option>
+                        <option value="food_truck">Food Truck</option>
+                      </select>
+                      <Building2 className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
+                    </div>
                   </div>
 
                   <div>
-                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                      Owner Email
+                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                      GSTIN / Tax ID (Optional)
                     </label>
+                    <div className="relative">
+                      <input
+                        type="text"
+                        value={bizGstin}
+                        onChange={(e) => setBizGstin(e.target.value)}
+                        placeholder="29AABCS1234F1Z8"
+                        className="w-full h-10 px-3 pl-9 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs text-slate-900 dark:text-white uppercase focus:outline-hidden focus:ring-2 focus:ring-teal-500"
+                      />
+                      <FileText className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    Store / Café Address *
+                  </label>
+                  <div className="relative">
                     <input
-                      type="email"
+                      type="text"
                       required
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      placeholder="owner@mycafe.com"
-                      className="w-full h-11 px-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm text-slate-900 dark:text-white"
+                      value={bizAddress}
+                      onChange={(e) => setBizAddress(e.target.value)}
+                      placeholder="e.g. Shop 4, 100ft Road, Indiranagar, Bengaluru, Karnataka"
+                      className="w-full h-10 px-3 pl-9 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs text-slate-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-teal-500"
                     />
+                    <MapPin className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
+                  </div>
+                </div>
+              </div>
+
+              {/* SECTION B: OWNER & CONTACT DETAILS */}
+              <div className="flex flex-col gap-2.5 p-3 sm:p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/80 dark:border-slate-700/80">
+                <div className="flex items-center gap-2 text-xs font-bold text-slate-800 dark:text-slate-200">
+                  <User className="w-4 h-4 text-teal-600" />
+                  <span>Owner Contact Details</span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                      Owner Full Name *
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="text"
+                        required
+                        value={ownerName || fullName}
+                        onChange={(e) => {
+                          setOwnerName(e.target.value);
+                          setFullName(e.target.value);
+                        }}
+                        placeholder="e.g. Jay Mistry"
+                        className="w-full h-10 px-3 pl-9 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs text-slate-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-teal-500"
+                      />
+                      <User className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
+                    </div>
                   </div>
 
                   <div>
-                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                      Password
+                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                      Owner Phone / Mobile *
                     </label>
-                    <input
-                      type="password"
-                      required
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      placeholder="••••••••"
-                      className="w-full h-11 px-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm text-slate-900 dark:text-white"
-                    />
+                    <div className="relative">
+                      <input
+                        type="tel"
+                        required
+                        value={ownerPhone}
+                        onChange={(e) => setOwnerPhone(e.target.value)}
+                        placeholder="e.g. +91 98765 43210"
+                        className="w-full h-10 px-3 pl-9 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs text-slate-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-teal-500"
+                      />
+                      <Phone className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
+                    </div>
                   </div>
-                </>
-              )}
+                </div>
 
-              <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                  Business / Café Name
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={bizName}
-                  onChange={(e) => setBizName(e.target.value)}
-                  placeholder="Spice Cafe"
-                  className="w-full h-11 px-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm text-slate-900 dark:text-white"
-                />
-              </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                      Owner Email Address *
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="email"
+                        required
+                        value={ownerEmail || email}
+                        onChange={(e) => {
+                          setOwnerEmail(e.target.value);
+                          setEmail(e.target.value);
+                        }}
+                        placeholder="e.g. owner@mycafe.com"
+                        className="w-full h-10 px-3 pl-9 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs text-slate-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-teal-500"
+                      />
+                      <Mail className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
+                    </div>
+                  </div>
 
-              <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                  Business Type
-                </label>
-                <select
-                  value={bizType}
-                  onChange={(e) => setBizType(e.target.value as BusinessType)}
-                  className="w-full h-11 px-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm text-slate-900 dark:text-white"
-                >
-                  <option value="cafe">Café & Coffee Bar</option>
-                  <option value="bakery">Bakery & Patisserie</option>
-                  <option value="qsr">Quick Service Restaurant (QSR)</option>
-                  <option value="restaurant">Fine Dining Restaurant</option>
-                  <option value="food_truck">Food Truck</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                  GSTIN / Tax ID (Optional)
-                </label>
-                <input
-                  type="text"
-                  value={bizGstin}
-                  onChange={(e) => setBizGstin(e.target.value)}
-                  placeholder="29AABCS1234F1Z8"
-                  className="w-full h-11 px-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm text-slate-900 dark:text-white"
-                />
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                        Owner Account Password *
+                      </label>
+                      <span className="text-[10px] text-teal-600 dark:text-teal-400 font-medium">Min 6 chars</span>
+                    </div>
+                    <div className="relative">
+                      <input
+                        type={showRegPassword ? 'text' : 'password'}
+                        required
+                        value={regPassword}
+                        onChange={(e) => setRegPassword(e.target.value)}
+                        placeholder="e.g. CafeOwner@2025"
+                        className="w-full h-10 px-3 pl-9 pr-10 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs text-slate-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-teal-500"
+                      />
+                      <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
+                      <button
+                        type="button"
+                        onClick={() => setShowRegPassword(!showRegPassword)}
+                        className="absolute right-2.5 top-2.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-0.5 rounded-md"
+                        title={showRegPassword ? 'Hide password' : 'Show password'}
+                      >
+                        {showRegPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
+                  </div>
+                </div>
               </div>
 
               <button

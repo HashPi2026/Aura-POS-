@@ -49,6 +49,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.ui.components.BusinessAuthDialog
 import com.example.ui.components.HeaderBar
 import com.example.ui.components.PaymentDialog
 import com.example.ui.components.ReceiptConfirmationDialog
@@ -108,6 +109,13 @@ fun PosApp(viewModel: PosViewModel) {
     val showReceiptDialog by viewModel.showReceiptDialog.collectAsStateWithLifecycle()
     val completedSale by viewModel.completedSale.collectAsStateWithLifecycle()
 
+    val storeName by viewModel.storeNameState.collectAsStateWithLifecycle()
+    val storeAddress by viewModel.storeAddressState.collectAsStateWithLifecycle()
+    val storeGstin by viewModel.storeGstinState.collectAsStateWithLifecycle()
+    val businessType by viewModel.businessTypeState.collectAsStateWithLifecycle()
+    val ownerEmail by viewModel.ownerEmailState.collectAsStateWithLifecycle()
+    val showBusinessAuthDialog by viewModel.showBusinessAuthDialog.collectAsStateWithLifecycle()
+
     val cartTotals = viewModel.calculateTotals()
 
     // Back handler for tablet sub-screens
@@ -124,10 +132,11 @@ fun PosApp(viewModel: PosViewModel) {
 
         if (isLocked) {
             LoginPinScreen(
-                storeName = viewModel.storeName,
+                storeName = storeName,
                 counterName = viewModel.counterName,
                 cashierName = viewModel.currentCashier,
-                onUnlock = { pin -> viewModel.unlockWithPin(pin) }
+                onUnlock = { pin -> viewModel.unlockWithPin(pin) },
+                onOpenBusinessSetup = { viewModel.openBusinessAuthDialog() }
             )
         } else {
             Scaffold(
@@ -149,6 +158,7 @@ fun PosApp(viewModel: PosViewModel) {
                         onToggleDarkMode = { viewModel.toggleDarkMode() },
                         cashierName = viewModel.currentCashier,
                         counterName = viewModel.counterName,
+                        storeName = storeName,
                         onLockTerminal = { viewModel.lockTerminal() },
                         isCompact = isCompact
                     )
@@ -266,15 +276,20 @@ fun PosApp(viewModel: PosViewModel) {
                     ScreenTab.SALES_HISTORY -> {
                         SalesHistoryScreen(
                             sales = sales,
-                            onViewReceipt = { sale -> viewModel.viewPastSaleReceipt(sale) }
+                            onViewReceipt = { sale -> viewModel.viewPastSaleReceipt(sale) },
+                            storeName = storeName,
+                            counterName = viewModel.counterName,
+                            cashierName = viewModel.currentCashier,
+                            isCompact = isCompact,
+                            onGoToCheckout = { viewModel.setActiveTab(ScreenTab.CHECKOUT) }
                         )
                     }
 
                     ScreenTab.SETTINGS -> {
                         SettingsScreen(
-                            storeName = viewModel.storeName,
-                            storeAddress = viewModel.storeAddress,
-                            storeGstin = viewModel.storeGstin,
+                            storeName = storeName,
+                            storeAddress = storeAddress,
+                            storeGstin = storeGstin,
                             counterName = viewModel.counterName,
                             cashierName = viewModel.currentCashier,
                             printerConnected = printerConnected,
@@ -287,7 +302,8 @@ fun PosApp(viewModel: PosViewModel) {
                             onToggleServerFailure = { viewModel.toggleServerFailureSimulation() },
                             isDarkMode = isDarkMode,
                             onToggleDarkMode = { viewModel.toggleDarkMode() },
-                            onLockTerminal = { viewModel.lockTerminal() }
+                            onLockTerminal = { viewModel.lockTerminal() },
+                            onOpenBusinessSetup = { viewModel.openBusinessAuthDialog() }
                         )
                     }
                 }
@@ -357,6 +373,21 @@ fun PosApp(viewModel: PosViewModel) {
                 onPrint = { viewModel.printCurrentReceipt() },
                 onNewSale = { viewModel.closeReceiptDialog() },
                 onDismiss = { viewModel.closeReceiptDialog() }
+            )
+        }
+
+        // Business & Cloud Setup Dialog
+        if (showBusinessAuthDialog) {
+            BusinessAuthDialog(
+                currentName = storeName,
+                currentAddress = storeAddress,
+                currentGstin = storeGstin,
+                currentType = businessType,
+                currentEmail = ownerEmail,
+                onSaveProfile = { name, addr, gstin, type, email ->
+                    viewModel.updateBusinessProfile(name, addr, gstin, type, email)
+                },
+                onDismiss = { viewModel.closeBusinessAuthDialog() }
             )
         }
     }

@@ -647,16 +647,24 @@ export async function mergeRemoteSales(remoteSales: any[]): Promise<void> {
   await tx.done;
 }
 
-export async function getAllSales(): Promise<Sale[]> {
+export async function getAllSales(businessId?: string): Promise<Sale[]> {
   const db = await getDb();
   const sales = await db.getAllFromIndex('sales', 'by-timestamp');
-  return sales.reverse();
+  const reversed = sales.reverse();
+  if (!businessId) return reversed;
+  return reversed.filter(
+    (s: any) => s.businessId === businessId || (!s.businessId && businessId === '11111111-1111-1111-1111-111111111111')
+  );
 }
 
-export async function getUnsyncedSales(): Promise<Sale[]> {
+export async function getUnsyncedSales(businessId?: string): Promise<Sale[]> {
   const db = await getDb();
   const all = await db.getAllFromIndex('sales', 'by-timestamp');
-  return all.filter((s) => s.syncStatus !== 'SYNCED');
+  const unsynced = all.filter((s) => s.syncStatus !== 'SYNCED');
+  if (!businessId) return unsynced;
+  return unsynced.filter(
+    (s: any) => s.businessId === businessId || (!s.businessId && businessId === '11111111-1111-1111-1111-111111111111')
+  );
 }
 
 export async function updateSaleSyncStatus(

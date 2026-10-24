@@ -4,8 +4,11 @@
     "name": "Spice Cafe",
     "businessType": "cafe",
     "taxIdentifier": "29AABCS1234F1Z8",
-    "address": "100ft Road, Indiranagar, Bengaluru, Karnataka",
+    "address": "Sharthi Residency, Kumbhariya Gam, Surat, 395010",
     "phone": "+91 80 2520 8900",
+    "ownerName": "Rahul Patel",
+    "ownerPhone": "+91 80 2520 8900",
+    "ownerEmail": "spicecafe@gmail.com",
     "currency": "INR",
     "timezone": "Asia/Kolkata",
     "taxRate": 5
@@ -190,37 +193,8 @@
   ],
   "sales": [
     {
-      "id": "test_sale_1792561541345_0.1834629657725333",
-      "receiptNumber": "AUR-CF-TEST-1792561541345",
-      "timestamp": 1792561541345,
-      "cashierName": "Barista Ramesh",
-      "counterName": "Espresso Bar 1",
-      "orderType": "DINE_IN",
-      "tableName": "Table 1",
-      "items": [
-        {
-          "productId": "prod_cappuccino",
-          "name": "Artisanal Cappuccino",
-          "price": 180,
-          "quantity": 1
-        }
-      ],
-      "itemCount": 1,
-      "subtotal": 180,
-      "cgst": 4.5,
-      "sgst": 4.5,
-      "totalGst": 9,
-      "roundOff": 0,
-      "totalAmount": 189,
-      "paymentMethod": "CASH",
-      "amountTendered": 200,
-      "changeDue": 11,
-      "syncStatus": "SYNCED",
-      "syncedAt": 1792561541348
-    },
-    {
       "id": "66666666-6666-6666-6666-666666660004",
-      "receiptNumber": "SPC-2026-1004",
+      "receiptNumber": "KWI-SPC-2026-0004",
       "timestamp": 1792235100000,
       "cashierName": "Priya Cashier",
       "counterName": "Spice Counter 1",
@@ -258,11 +232,12 @@
       "changeDue": 0,
       "upiRef": "UPI90123847",
       "syncStatus": "SYNCED",
-      "syncedAt": 1792235100000
+      "syncedAt": 1792235100000,
+      "businessId": "11111111-1111-1111-1111-111111111111"
     },
     {
       "id": "66666666-6666-6666-6666-666666660003",
-      "receiptNumber": "SPC-2026-1003",
+      "receiptNumber": "KWI-SPC-2026-0003",
       "timestamp": 1792233900000,
       "cashierName": "Rahul Patel",
       "counterName": "Spice Counter 1",
@@ -293,11 +268,12 @@
       "amountTendered": 400,
       "changeDue": 32,
       "syncStatus": "SYNCED",
-      "syncedAt": 1792233900000
+      "syncedAt": 1792233900000,
+      "businessId": "11111111-1111-1111-1111-111111111111"
     },
     {
       "id": "66666666-6666-6666-6666-666666660002",
-      "receiptNumber": "SPC-2026-1002",
+      "receiptNumber": "KWI-SPC-2026-0002",
       "timestamp": 1792232100000,
       "cashierName": "Priya Cashier",
       "counterName": "Spice Counter 1",
@@ -328,11 +304,12 @@
       "amountTendered": 536,
       "changeDue": 0,
       "syncStatus": "SYNCED",
-      "syncedAt": 1792232100000
+      "syncedAt": 1792232100000,
+      "businessId": "11111111-1111-1111-1111-111111111111"
     },
     {
       "id": "66666666-6666-6666-6666-666666660001",
-      "receiptNumber": "SPC-2026-1001",
+      "receiptNumber": "KWI-SPC-2026-0001",
       "timestamp": 1792229400000,
       "cashierName": "Rahul Patel",
       "counterName": "Spice Counter 1",
@@ -364,7 +341,8 @@
       "changeDue": 0,
       "upiRef": "UPI88921045",
       "syncStatus": "SYNCED",
-      "syncedAt": 1792229400000
+      "syncedAt": 1792229400000,
+      "businessId": "11111111-1111-1111-1111-111111111111"
     }
   ],
   "kots": [

@@ -92,7 +92,10 @@ export const restApi = {
 
   // Sales & Offline-First Cloud Sync
   sales: {
-    getAll: () => fetchJson<{ success: boolean; count: number; sales: any[] }>('/sales'),
+    getAll: (businessId?: string) =>
+      fetchJson<{ success: boolean; count: number; sales: any[] }>(
+        `/sales${businessId ? `?businessId=${encodeURIComponent(businessId)}` : ''}`
+      ),
     create: (sale: any) =>
       fetchJson('/sales', {
         method: 'POST',
@@ -106,7 +109,8 @@ export const restApi = {
           body: JSON.stringify(Array.isArray(saleOrSales) ? { sales: saleOrSales } : { sale: saleOrSales }),
         }
       ),
-    getStats: () => fetchJson('/sales/stats'),
+    getStats: (businessId?: string) =>
+      fetchJson(`/sales/stats${businessId ? `?businessId=${encodeURIComponent(businessId)}` : ''}`),
   },
 
   // Tables
@@ -125,7 +129,10 @@ export const restApi = {
 
   // Kitchen Order Tickets (KOT)
   kot: {
-    getAll: () => fetchJson<{ success: boolean; kots: any[] }>('/kot'),
+    getAll: (businessId?: string) =>
+      fetchJson<{ success: boolean; kots: any[] }>(
+        `/kot${businessId ? `?businessId=${encodeURIComponent(businessId)}` : ''}`
+      ),
     create: (kot: any) =>
       fetchJson('/kot', {
         method: 'POST',
@@ -144,13 +151,24 @@ export const restApi = {
 
   // Business Profile
   business: {
-    get: () => fetchJson<{ success: boolean; business: any }>('/business'),
+    get: (businessId?: string) =>
+      fetchJson<{ success: boolean; business: any }>(
+        `/business${businessId ? `?businessId=${encodeURIComponent(businessId)}` : ''}`
+      ),
+    create: (data: any) =>
+      fetchJson('/business', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }),
     update: (data: any) =>
       fetchJson('/business', {
         method: 'PUT',
         body: JSON.stringify(data),
       }),
-    getStaff: () => fetchJson<{ success: boolean; staff: any[] }>('/business/staff'),
+    getStaff: (businessId?: string) =>
+      fetchJson<{ success: boolean; staff: any[] }>(
+        `/business/staff${businessId ? `?businessId=${encodeURIComponent(businessId)}` : ''}`
+      ),
   },
 
   // Supabase Cloud Bridge

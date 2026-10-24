@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { usePosStore } from '../store/usePosStore';
 import { useAuthStore } from '../store/useAuthStore';
+import { KwikioLogoMark } from './KwikioLogo';
 
 export const StoreProfileSettings: React.FC = () => {
   const { storeName, storeAddress, storePhone, storeGstin, updateStoreProfile, showBanner } =
@@ -218,6 +219,9 @@ export const StoreProfileSettings: React.FC = () => {
           </div>
 
           <div className="bg-[#FAF8F5] text-slate-900 font-mono text-xs p-4 rounded-xl border border-amber-200/80 shadow-xs flex flex-col gap-1 select-none leading-relaxed">
+            <div className="flex justify-center mb-1">
+              <KwikioLogoMark size={24} ringColor="#14161A" />
+            </div>
             <div className="text-center font-bold text-sm tracking-wider uppercase text-slate-950">
               {name.trim() || 'STORE NAME'}
             </div>

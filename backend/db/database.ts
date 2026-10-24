@@ -92,6 +92,9 @@ export interface BusinessProfile {
   taxIdentifier: string;
   address: string;
   phone: string;
+  ownerName?: string;
+  ownerPhone?: string;
+  ownerEmail?: string;
   currency: string;
   timezone: string;
   taxRate: number;
@@ -282,8 +285,8 @@ const DEFAULT_BUSINESS: BusinessProfile = {
   name: 'Spice Cafe',
   businessType: 'cafe',
   taxIdentifier: '29AABCS1234F1Z8',
-  address: '100ft Road, Indiranagar, Bengaluru, Karnataka',
-  phone: '+91 80 4123 5678',
+  address: 'Sharthi Residency, Kumbhariya Gam, Surat, 395010',
+  phone: '+91 80 2520 8900',
   currency: 'INR',
   timezone: 'Asia/Kolkata',
   taxRate: 5.0,

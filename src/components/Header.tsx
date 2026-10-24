@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import {
   RefreshCw,
   Printer,
@@ -15,17 +15,14 @@ import {
   ChefHat,
   Package,
   Download,
-  ShieldCheck,
-  User,
 } from 'lucide-react';
 import { usePosStore } from '../store/usePosStore';
 import { useAuthStore } from '../store/useAuthStore';
 import { can } from '../utils/permissions';
-import { AuthModal } from './AuthModal';
+import { KwikioAppIcon } from './KwikioLogo';
 
 export const Header: React.FC = () => {
-  const [showAuthModal, setShowAuthModal] = useState(false);
-  const { user, currentBusiness, currentRole } = useAuthStore();
+  const { currentBusiness, currentRole } = useAuthStore();
   const {
     activeTab,
     setActiveTab,
@@ -49,13 +46,11 @@ export const Header: React.FC = () => {
       <div className="flex items-center justify-between gap-2 sm:gap-4 max-w-7xl mx-auto w-full">
         {/* Brand & Logged-In Business */}
         <div className="flex items-center gap-2 sm:gap-2.5">
-          <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-brand text-white flex items-center justify-center font-black shadow-xs shrink-0">
-            <Coffee className="w-4 h-4 sm:w-5 sm:h-5" />
-          </div>
+          <KwikioAppIcon size={34} />
           <div>
             <div className="flex items-center gap-1.5 sm:gap-2">
-              <span className="font-bold text-xs sm:text-sm tracking-tight text-slate-900 dark:text-white">
-                Aura POS
+              <span className="font-extrabold text-xs sm:text-sm tracking-[0.14em] text-slate-900 dark:text-white uppercase">
+                Kwikio POS
               </span>
               <span
                 title="Active Logged-in Business"
@@ -68,7 +63,7 @@ export const Header: React.FC = () => {
               </span>
             </div>
             <p className="text-[10px] text-slate-500 dark:text-slate-400 hidden xs:block">
-              Specialty Coffee, Bakery & Bites • POS
+              Point of Sale • Offline-First Terminal
             </p>
           </div>
         </div>
@@ -278,20 +273,8 @@ export const Header: React.FC = () => {
             </div>
             <Lock className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400 ml-1" />
           </button>
-
-          {/* Business & Cloud Settings Button */}
-          <button
-            onClick={() => setShowAuthModal(true)}
-            title="Business Setup & Cloud Authentication"
-            className="w-8 h-8 rounded-xl flex items-center justify-center text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors border border-slate-200 dark:border-slate-700/80"
-          >
-            <ShieldCheck className="w-4 h-4 text-slate-500" />
-          </button>
         </div>
       </div>
-
-      {/* Cloud Authentication & Multi-Tenant Onboarding Modal */}
-      <AuthModal isOpen={showAuthModal} onClose={() => setShowAuthModal(false)} />
     </header>
   );
 };

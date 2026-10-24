@@ -171,6 +171,7 @@ interface PosState {
   showBanner: (msg: string) => void;
   dismissBanner: () => void;
   updateStoreProfile: (profile: { name: string; address: string; phone: string; gstin?: string }) => Promise<void>;
+  switchBusiness: (businessId: string, biz?: any, ownerUser?: any) => Promise<void>;
 }
 
 let deferredInstallPrompt: any = null;
@@ -193,6 +194,35 @@ if (typeof window !== 'undefined') {
   });
 }
 
+/**
+ * Derives a clean short code from a business name:
+ * e.g., "Spice Cafe" -> "SPC", "Cafe Coffee" -> "CC", "Cafe Coffee In" -> "CCI"
+ */
+export function getBusinessShortCode(bizName?: string, explicitCode?: string): string {
+  if (explicitCode) {
+    const cleaned = explicitCode.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+    if (cleaned.length >= 2 && cleaned.length <= 4) return cleaned;
+  }
+  if (!bizName) return 'POS';
+
+  const cleanName = bizName.trim();
+  const lower = cleanName.toLowerCase();
+  if (lower.includes('spice') && lower.includes('cafe')) {
+    return 'SPC';
+  }
+
+  const words = cleanName.split(/\s+/).filter(Boolean);
+  if (words.length >= 3) {
+    return words.slice(0, 4).map((w) => w[0].toUpperCase()).join('');
+  }
+
+  if (words.length === 2) {
+    return `${words[0][0]}${words[1][0]}`.toUpperCase();
+  }
+
+  return cleanName.replace(/[^a-zA-Z0-9]/g, '').toUpperCase().slice(0, 3) || 'POS';
+}
+
 export const usePosStore = create<PosState>((set, get) => ({
   orderType: 'DINE_IN',
   selectedTable: null,
@@ -200,11 +230,11 @@ export const usePosStore = create<PosState>((set, get) => ({
   kots: [],
   activeKotModal: null,
 
-  isLocked: false,
+  isLocked: true,
   cashierName: 'Rahul Patel',
   counterName: 'Spice Counter 1',
   storeName: 'Spice Cafe',
-  storeAddress: '100ft Road, Indiranagar, Bengaluru, Karnataka',
+  storeAddress: 'Sharthi Residency, Kumbhariya Gam, Surat, 395010',
   storeGstin: '29AABCS1234F1Z8',
   storePhone: '+91 80 2520 8900',
 
@@ -260,8 +290,14 @@ export const usePosStore = create<PosState>((set, get) => ({
     const tables = await getTables();
     const kots = await getAllKOTs();
     const draftCart = await loadDraftCart();
-    const sales = await getAllSales();
-    const unsynced = await getUnsyncedSales();
+    // Read live business & user info from auth store instead of using static values
+    const authState = useAuthStore.getState();
+    const biz = authState.currentBusiness;
+    const authUser = authState.user;
+    const currentBizId = biz?.id || '11111111-1111-1111-1111-111111111111';
+
+    const sales = await getAllSales(currentBizId);
+    const unsynced = await getUnsyncedSales(currentBizId);
 
     // Dark mode preference
     const savedTheme = localStorage.getItem('aura_theme');
@@ -275,11 +311,6 @@ export const usePosStore = create<PosState>((set, get) => ({
     // Color theme preference
     const savedColorTheme = (localStorage.getItem('aura_color_theme') as ColorTheme) || 'teal';
     document.documentElement.setAttribute('data-theme', savedColorTheme);
-
-    // Read live business & user info from auth store instead of using static values
-    const authState = useAuthStore.getState();
-    const biz = authState.currentBusiness;
-    const authUser = authState.user;
 
     set({
       products,
@@ -295,7 +326,7 @@ export const usePosStore = create<PosState>((set, get) => ({
       storeAddress: biz?.address || get().storeAddress,
       storeGstin: biz?.tax_identifier || (biz as any)?.taxIdentifier || get().storeGstin,
       storePhone: biz?.phone || get().storePhone,
-      cashierName: authUser?.fullName || get().cashierName,
+      cashierName: authUser?.fullName || biz?.ownerName || get().cashierName,
     });
 
     // Load any locally customized Store Profile from local database (IndexedDB)
@@ -381,16 +412,32 @@ export const usePosStore = create<PosState>((set, get) => ({
     }
 
     try {
-      // 3. Fetch live business profile
+      // 3. Fetch live business profile from cloud database
       const bizRes = await restApi.business.get();
       if (bizRes && bizRes.success && bizRes.business) {
         const b = bizRes.business;
+        const liveAddress = b.address || get().storeAddress;
+        const liveName = b.name || get().storeName;
+        const livePhone = b.phone || get().storePhone;
+        const liveGstin = b.taxIdentifier || b.tax_identifier || get().storeGstin;
+
         set({
-          storeName: b.name || get().storeName,
-          storeAddress: b.address || get().storeAddress,
-          storeGstin: b.taxIdentifier || b.tax_identifier || get().storeGstin,
-          storePhone: b.phone || get().storePhone,
+          storeName: liveName,
+          storeAddress: liveAddress,
+          storeGstin: liveGstin,
+          storePhone: livePhone,
         });
+
+        // Keep local device cache synced with latest cloud address
+        try {
+          await saveStoreProfileToDb({
+            name: liveName,
+            address: liveAddress,
+            phone: livePhone,
+            gstin: liveGstin,
+            updatedAt: Date.now(),
+          });
+        } catch (_) {}
       }
     } catch (err) {
       console.warn('Could not fetch live business:', err);
@@ -398,11 +445,14 @@ export const usePosStore = create<PosState>((set, get) => ({
 
     try {
       // 4. Fetch live sales history from backend and sync into IndexedDB
-      const salesRes = await restApi.sales.getAll();
-      if (salesRes && salesRes.success && Array.isArray(salesRes.sales) && salesRes.sales.length > 0) {
-        await mergeRemoteSales(salesRes.sales);
-        const allSales = await getAllSales();
-        const unsynced = await getUnsyncedSales();
+      const currentBizId = useAuthStore.getState().currentBusiness?.id || '11111111-1111-1111-1111-111111111111';
+      const salesRes = await restApi.sales.getAll(currentBizId);
+      if (salesRes && salesRes.success && Array.isArray(salesRes.sales)) {
+        if (salesRes.sales.length > 0) {
+          await mergeRemoteSales(salesRes.sales);
+        }
+        const allSales = await getAllSales(currentBizId);
+        const unsynced = await getUnsyncedSales(currentBizId);
         set({ sales: allSales, unsyncedCount: unsynced.length });
       }
     } catch (err) {
@@ -899,12 +949,39 @@ export const usePosStore = create<PosState>((set, get) => ({
     const totals = state.getTotals();
     if (state.cart.length === 0) return;
 
-    const receiptNum = `AUR-CF-${new Date().getFullYear()}-${1000 + state.sales.length + 1}`;
+    const authBiz = useAuthStore.getState().currentBusiness;
+    const currentBizId = authBiz?.id || '11111111-1111-1111-1111-111111111111';
+    const bizShortCode = getBusinessShortCode(authBiz?.name, (authBiz as any)?.code);
+    const currentYear = new Date().getFullYear();
+
+    // Filter sales belonging to the current business
+    const bizSales = state.sales.filter(
+      (s) => s.businessId === currentBizId || (!s.businessId && currentBizId === '11111111-1111-1111-1111-111111111111')
+    );
+
+    // Calculate sequential sequence starting from 0001
+    let maxSeq = 0;
+    for (const s of bizSales) {
+      if (s.receiptNumber) {
+        const match = s.receiptNumber.match(new RegExp(`KWI-[A-Z0-9]+-${currentYear}-(\\d+)`, 'i'));
+        if (match) {
+          const num = parseInt(match[1], 10);
+          if (!isNaN(num) && num > maxSeq) {
+            maxSeq = num;
+          }
+        }
+      }
+    }
+
+    const nextSeq = maxSeq > 0 ? maxSeq + 1 : (bizSales.length + 1);
+    const seqStr = String(nextSeq).padStart(4, '0');
+    const receiptNum = `KWI-${bizShortCode}-${currentYear}-${seqStr}`;
+
     const newSale: Sale = {
       id: crypto.randomUUID ? crypto.randomUUID() : `sale_${Date.now()}_${Math.random()}`,
       receiptNumber: receiptNum,
       timestamp: Date.now(),
-      cashierName: state.cashierName,
+      cashierName: state.cashierName || authBiz?.ownerName || 'Cashier',
       counterName: state.counterName,
       orderType: state.orderType,
       tableName: state.selectedTable?.name,
@@ -922,6 +999,7 @@ export const usePosStore = create<PosState>((set, get) => ({
       upiRef: state.selectedPaymentMethod === 'UPI' ? `UPI${Date.now().toString().slice(-8)}` : undefined,
       syncStatus: 'SAVED_OFFLINE',
       syncAttempts: 0,
+      ...({ businessId: currentBizId } as any),
     };
 
     if (state.isOnline) {
@@ -1008,8 +1086,9 @@ export const usePosStore = create<PosState>((set, get) => ({
   },
 
   refreshSales: async () => {
-    const remaining = await getUnsyncedSales();
-    const updatedSales = await getAllSales();
+    const currentBizId = useAuthStore.getState().currentBusiness?.id || '11111111-1111-1111-1111-111111111111';
+    const remaining = await getUnsyncedSales(currentBizId);
+    const updatedSales = await getAllSales(currentBizId);
     set({
       unsyncedCount: remaining.length,
       sales: updatedSales,
@@ -1125,4 +1204,36 @@ export const usePosStore = create<PosState>((set, get) => ({
   },
 
   dismissBanner: () => set({ bannerMessage: null }),
+
+  switchBusiness: async (businessId: string, biz?: any, ownerUser?: any) => {
+    const activeBiz = biz || useAuthStore.getState().currentBusiness;
+    const activeUser = ownerUser || useAuthStore.getState().user;
+
+    const isolatedSales = await getAllSales(businessId);
+    const unsynced = await getUnsyncedSales(businessId);
+
+    set({
+      storeName: activeBiz?.name || get().storeName,
+      storeAddress: activeBiz?.address || get().storeAddress,
+      storeGstin: activeBiz?.tax_identifier || (activeBiz as any)?.taxIdentifier || get().storeGstin,
+      storePhone: activeBiz?.phone || get().storePhone,
+      cashierName: activeUser?.fullName || activeBiz?.ownerName || get().cashierName,
+      sales: isolatedSales,
+      unsyncedCount: unsynced.length,
+      cart: [],
+      selectedTable: null,
+    });
+
+    try {
+      const salesRes = await restApi.sales.getAll(businessId);
+      if (salesRes && salesRes.success && Array.isArray(salesRes.sales)) {
+        if (salesRes.sales.length > 0) {
+          await mergeRemoteSales(salesRes.sales);
+        }
+        const refreshed = await getAllSales(businessId);
+        const un = await getUnsyncedSales(businessId);
+        set({ sales: refreshed, unsyncedCount: un.length });
+      }
+    } catch (_) {}
+  },
 }));

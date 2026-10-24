@@ -17,6 +17,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bluetooth
 import androidx.compose.material.icons.filled.BluetoothConnected
 import androidx.compose.material.icons.filled.BluetoothDisabled
+import androidx.compose.material.icons.filled.Business
 import androidx.compose.material.icons.filled.CloudOff
 import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.Info
@@ -68,6 +69,7 @@ fun SettingsScreen(
     isDarkMode: Boolean,
     onToggleDarkMode: () -> Unit,
     onLockTerminal: () -> Unit,
+    onOpenBusinessSetup: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -302,6 +304,21 @@ fun SettingsScreen(
                 InfoRow(label = "Active Cashier", value = cashierName)
                 InfoRow(label = "GST Rate Applied", value = "18% (9% CGST + 9% SGST)")
                 InfoRow(label = "Currency", value = "INR (₹) with Indian Lakh/Crore grouping")
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                Button(
+                    onClick = onOpenBusinessSetup,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(44.dp)
+                        .testTag("btn_settings_open_business_setup"),
+                    shape = RoundedCornerShape(10.dp)
+                ) {
+                    Icon(Icons.Default.Business, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("Switch / Register Business Profile", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                }
             }
         }
 

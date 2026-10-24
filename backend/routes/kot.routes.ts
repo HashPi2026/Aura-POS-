@@ -3,20 +3,28 @@ import { db, KotRecord } from '../db/database';
 
 const router = Router();
 
-// GET /api/kot - Get all active kitchen order tickets
+// GET /api/kot - Get active kitchen order tickets for the business
 router.get('/', (req: Request, res: Response) => {
-  const kots = db.getKots();
+  const reqBizId = (req.query.businessId as string) || (req.headers['x-business-id'] as string);
+  let kots = db.getKots();
+  if (reqBizId) {
+    kots = kots.filter((k: any) => k.businessId === reqBizId || (!k.businessId && reqBizId === '11111111-1111-1111-1111-111111111111'));
+  }
   res.json({ success: true, kots });
 });
 
 // POST /api/kot - Send new KOT to Kitchen/Barista
 router.post('/', (req: Request, res: Response) => {
   const kotData: KotRecord = req.body;
+  const currentBiz = db.getBusiness();
+  const targetBizId = (kotData as any).businessId || req.headers['x-business-id'] || currentBiz.id || '11111111-1111-1111-1111-111111111111';
+
   const created = db.addKot({
     ...kotData,
     id: kotData.id || `kot_${Date.now()}`,
     timestamp: kotData.timestamp || Date.now(),
     status: kotData.status || 'PREPARING',
+    ...({ businessId: targetBizId } as any),
   });
   res.json({ success: true, kot: created });
 });

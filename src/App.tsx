@@ -42,18 +42,14 @@ export const App: React.FC = () => {
     );
   }
 
-  // Clear 2-Tier Login Gate:
-  // If terminal is locked for staff, OR if cloud auth is unauthenticated and not yet in standalone mode
-  const showLoginGate = isLocked || (!user && !isStandaloneMode);
+  // SaaS Login Gate:
+  // Requires authentication (!user) or terminal unlocked (!isLocked) to access POS
+  const showLoginGate = !user || isLocked;
 
   if (showLoginGate) {
     return (
       <LoginScreen
         onUnlock={() => {
-          useAuthStore.setState({ isStandaloneMode: true });
-          if (typeof localStorage !== 'undefined') {
-            localStorage.setItem('aura_standalone_mode', 'true');
-          }
           usePosStore.setState({ isLocked: false, activeTab: 'CHECKOUT' });
         }}
       />

@@ -15,6 +15,12 @@ export interface Business {
   updated_at?: string;
   address?: string;
   phone?: string;
+  owner_name?: string;
+  ownerName?: string;
+  owner_phone?: string;
+  ownerPhone?: string;
+  owner_email?: string;
+  ownerEmail?: string;
 }
 
 export interface AuthUser {
@@ -36,7 +42,7 @@ const DEFAULT_BUSINESS: Business = {
   tax_identifier: '29AABCS1234F1Z8',
   currency: 'INR',
   timezone: 'Asia/Kolkata',
-  address: '100ft Road, Indiranagar, Bengaluru, Karnataka',
+  address: 'Sharthi Residency, Kumbhariya Gam, Surat, 395010',
   phone: '+91 80 2520 8900',
 };
 
@@ -65,7 +71,16 @@ interface AuthState {
   signInWithEmail: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
   signUpWithEmail: (email: string, password: string, fullName: string) => Promise<{ success: boolean; error?: string; needsConfirmation?: boolean }>;
   signOut: () => Promise<void>;
-  createBusiness: (name: string, businessType: BusinessType, gstin?: string) => Promise<{ success: boolean; error?: string }>;
+  createBusiness: (
+    name: string,
+    businessType: BusinessType,
+    gstin?: string,
+    address?: string,
+    ownerName?: string,
+    ownerPhone?: string,
+    ownerEmail?: string,
+    password?: string
+  ) => Promise<{ success: boolean; error?: string }>;
   selectBusiness: (businessId: string) => Promise<void>;
   setUserFromPin: (member: { id: string; userId: string; fullName: string; role: UserRole }) => void;
   clearError: () => void;
@@ -180,30 +195,37 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       console.info('Backend auth ping completed:', err.message);
     }
 
-    // 3. Fallback to cached or default Aura session so terminal is NEVER locked out
-    const finalUser = cachedUser || DEFAULT_USER;
-    const rawFinalBiz = cachedBiz || DEFAULT_BUSINESS;
-    const finalBiz: Business = {
-      ...rawFinalBiz,
-      business_type: rawFinalBiz.business_type || rawFinalBiz.businessType || 'cafe',
-      businessType: rawFinalBiz.businessType || rawFinalBiz.business_type || 'cafe',
-    };
-    const finalRole = cachedRole || finalUser.role || 'owner';
+    // 3. Restore cached session if valid login was previously stored
+    if (cachedUser && cachedBiz) {
+      const finalBiz: Business = {
+        ...cachedBiz,
+        business_type: cachedBiz.business_type || cachedBiz.businessType || 'cafe',
+        businessType: cachedBiz.businessType || cachedBiz.business_type || 'cafe',
+      };
+      const finalRole = cachedRole || cachedUser.role || 'owner';
 
-    if (typeof localStorage !== 'undefined') {
-      localStorage.setItem(CACHED_USER_KEY, JSON.stringify(finalUser));
-      localStorage.setItem(CACHED_BUSINESS_KEY, JSON.stringify(finalBiz));
-      localStorage.setItem(CACHED_ROLE_KEY, finalRole);
+      set({
+        user: cachedUser,
+        currentBusiness: finalBiz,
+        userBusinesses: [finalBiz],
+        currentRole: finalRole,
+        isLoading: false,
+        isConfigured: true,
+        authError: null,
+      });
+      return;
     }
 
+    // 4. Fresh SaaS startup: user is unauthenticated and must start on Login/Register page
     set({
-      user: finalUser,
-      currentBusiness: finalBiz,
-      userBusinesses: [finalBiz],
-      currentRole: finalRole,
+      user: null,
+      currentBusiness: null,
+      userBusinesses: [],
+      currentRole: null,
       isLoading: false,
       isConfigured: true,
       authError: null,
+      isStandaloneMode: false,
     });
   },
 
@@ -236,6 +258,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           needsOnboarding: false,
           authError: null,
         });
+
+        // Immediately switch POS store to this business's isolated data
+        try {
+          const { usePosStore } = await import('./usePosStore');
+          await usePosStore.getState().switchBusiness(business.id, business, user);
+        } catch (_) {}
+
         return { success: true };
       }
       throw new Error(res.error || 'Login failed');
@@ -299,6 +328,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       localStorage.removeItem('aura_standalone_mode');
     }
 
+    try {
+      const { usePosStore } = await import('./usePosStore');
+      usePosStore.setState({ isLocked: true });
+    } catch (_) {}
+
     set({
       user: null,
       currentBusiness: null,
@@ -309,32 +343,54 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     });
   },
 
-  createBusiness: async (name, businessType, gstin) => {
+  createBusiness: async (name, businessType, gstin, address, ownerName, ownerPhone, ownerEmail, password) => {
     set({ isLoading: true, authError: null });
     try {
-      const res = await restApi.business.update({
+      const res = await restApi.business.create({
         name,
         businessType,
         taxIdentifier: gstin,
+        address,
+        phone: ownerPhone,
+        ownerName,
+        ownerPhone,
+        ownerEmail,
+        password,
       });
 
-      const biz: Business = res.business || {
-        id: '00000000-0000-0000-0000-000000000001',
-        name,
-        business_type: businessType,
-        tax_identifier: gstin,
+      if (!res.success && res.error) {
+        throw new Error(res.error);
+      }
+
+      const biz: Business = res.business;
+      const ownerUser: AuthUser = res.user || {
+        id: `user_${Date.now()}`,
+        email: ownerEmail || '',
+        fullName: ownerName || 'Owner',
+        role: 'owner',
       };
 
       if (typeof localStorage !== 'undefined') {
+        if (res.token) localStorage.setItem(CACHED_TOKEN_KEY, res.token);
+        localStorage.setItem(CACHED_USER_KEY, JSON.stringify(ownerUser));
         localStorage.setItem(CACHED_BUSINESS_KEY, JSON.stringify(biz));
+        localStorage.setItem(CACHED_ROLE_KEY, 'owner');
       }
 
       set({
+        user: ownerUser,
         currentBusiness: biz,
         userBusinesses: [biz],
         currentRole: 'owner',
         needsOnboarding: false,
+        authError: null,
       });
+
+      // Synchronize active POS store profile and switch to isolated business state
+      try {
+        const { usePosStore } = await import('./usePosStore');
+        await usePosStore.getState().switchBusiness(biz.id, biz, ownerUser);
+      } catch (_) {}
 
       return { success: true };
     } catch (err: any) {
@@ -352,6 +408,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       if (typeof localStorage !== 'undefined') {
         localStorage.setItem(CACHED_BUSINESS_KEY, JSON.stringify(biz));
       }
+      try {
+        const { usePosStore } = await import('./usePosStore');
+        await usePosStore.getState().switchBusiness(biz.id, biz, get().user);
+      } catch (_) {}
     }
   },
 

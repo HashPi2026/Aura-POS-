@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { usePosStore } from '../store/usePosStore';
 import { formatInr, formatReceiptDateTime } from '../utils/format';
+import { KwikioLogoMark } from './KwikioLogo';
 
 export const ReceiptModal: React.FC = () => {
   const {
@@ -87,6 +88,10 @@ export const ReceiptModal: React.FC = () => {
         {/* Monospace 58mm Thermal Receipt Preview */}
         <div className="p-4 overflow-y-auto flex-1 flex justify-center bg-slate-100 dark:bg-slate-950/50">
           <div className="bg-[#FAF8F5] text-slate-900 font-mono text-xs p-5 rounded-md shadow-md w-full max-w-[320px] border border-amber-100 select-text leading-tight">
+            {/* Kwikio Brand Logo Mark */}
+            <div className="flex justify-center mb-2">
+              <KwikioLogoMark size={28} ringColor="#14161A" />
+            </div>
             {/* Store Title */}
             <div className="text-center font-bold text-sm tracking-wider uppercase">{storeName}</div>
             <div className="text-center text-[10px] text-slate-600">{storeAddress}</div>
@@ -197,7 +202,7 @@ export const ReceiptModal: React.FC = () => {
 
             <div className="text-center text-[10px] text-slate-600">
               <div>*** THANK YOU FOR VISITING ***</div>
-              <div>GST Tax Invoice • Aura POS India</div>
+              <div>GST Tax Invoice • Kwikio POS India</div>
             </div>
           </div>
         </div>

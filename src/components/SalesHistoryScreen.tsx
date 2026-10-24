@@ -37,10 +37,10 @@ export const SalesHistoryScreen: React.FC = () => {
             {sales.map((sale) => (
               <div
                 key={sale.id}
-                className="bg-white dark:bg-slate-900 rounded-xl p-4 border border-slate-200 dark:border-slate-800 shadow-2xs flex items-center justify-between gap-4"
+                className="bg-white dark:bg-slate-900 rounded-2xl p-3.5 sm:p-4 border border-slate-200 dark:border-slate-800 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-3"
               >
                 <div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <span className="font-mono font-bold text-sm text-slate-900 dark:text-white">
                       {sale.receiptNumber}
                     </span>
@@ -53,13 +53,13 @@ export const SalesHistoryScreen: React.FC = () => {
                       </span>
                     )}
                   </div>
-                  <div className="text-xs text-slate-500 mt-0.5">
+                  <div className="text-xs text-slate-500 mt-1">
                     {formatDateTime(sale.timestamp)} • {sale.itemCount} items {sale.tableName ? `• Table ${sale.tableName}` : ''}
                   </div>
                 </div>
 
-                <div className="flex items-center gap-4">
-                  <div className="text-right">
+                <div className="flex items-center justify-between sm:justify-end gap-3 pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-100 dark:border-slate-800/80">
+                  <div className="text-left sm:text-right">
                     <div className="font-mono font-black text-base text-slate-900 dark:text-white">
                       {formatInr(sale.totalAmount)}
                     </div>
@@ -68,7 +68,7 @@ export const SalesHistoryScreen: React.FC = () => {
 
                   <button
                     onClick={() => viewReceipt(sale)}
-                    className="h-9 px-3 rounded-lg border border-slate-300 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-xs font-semibold flex items-center gap-1.5 transition-colors text-slate-700 dark:text-slate-300"
+                    className="h-9 px-3 rounded-xl border border-slate-300 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-xs font-semibold flex items-center gap-1.5 transition-colors text-slate-700 dark:text-slate-300 shadow-2xs"
                   >
                     <Printer className="w-3.5 h-3.5" />
                     <span>Receipt</span>

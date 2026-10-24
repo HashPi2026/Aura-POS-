@@ -214,7 +214,7 @@ export const CheckoutScreen: React.FC = () => {
         </div>
 
         {/* Product Cards Grid */}
-        <div className="flex-1 overflow-y-auto pr-0.5 pb-20 lg:pb-2">
+        <div className="flex-1 overflow-y-auto pr-0.5 pb-28 lg:pb-4">
           {filteredProducts.length === 0 ? (
             <div className="h-full min-h-[220px] flex flex-col items-center justify-center text-slate-400 p-8 text-center">
               <Coffee className="w-10 h-10 mb-2 opacity-40 text-brand" />
@@ -291,7 +291,7 @@ export const CheckoutScreen: React.FC = () => {
 
       {/* Mobile Sticky Floating Cart Bar */}
       {cart.length > 0 && (
-        <div className="lg:hidden fixed bottom-16 left-3 right-3 z-20 animate-slideUp">
+        <div className="lg:hidden fixed bottom-[calc(3.75rem+env(safe-area-inset-bottom,0px))] left-3 right-3 z-20 animate-slideUp">
           <button
             onClick={() => setIsMobileCartOpen(true)}
             className="w-full h-14 rounded-2xl bg-brand text-white p-3.5 flex items-center justify-between shadow-2xl active:scale-[0.99] transition-all border border-white/20"

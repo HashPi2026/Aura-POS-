@@ -1,5 +1,6 @@
 import { restApi } from '../api/restClient';
 import { UserRole } from '../types/database';
+import { useAuthStore } from '../store/useAuthStore';
 
 export interface StaffPinMember {
   id: string;
@@ -114,7 +115,7 @@ class StaffPinService {
     // Query staff list from REST API backend
     if (typeof navigator !== 'undefined' && navigator.onLine) {
       try {
-        const { staff } = await restApi.business.getStaff();
+        const { staff } = await restApi.business.getStaff(businessId);
         if (staff && staff.length > 0) {
           const remoteList: StaffPinMember[] = staff.map((remote) => {
             const existing = cachedList.find((c) => c.userId === remote.userId || c.userId === remote.id);
@@ -375,13 +376,29 @@ class StaffPinService {
   }
 
   private async createDefaultStaffRoster(businessId: string): Promise<StaffPinMember[]> {
-    const roles: { name: string; role: UserRole; pin: string; id: string }[] = [
-      { name: 'Rahul Patel', role: 'owner', pin: '1111', id: '22222222-2222-2222-2222-222222222222' },
-      { name: 'Priya Cashier', role: 'cashier', pin: '1234', id: '22222222-2222-2222-2222-222222222223' },
-      { name: 'Vikram Server', role: 'waiter', pin: '2222', id: '22222222-2222-2222-2222-222222222224' },
-      { name: 'Chef Anand', role: 'kitchen', pin: '3333', id: '22222222-2222-2222-2222-222222222225' },
-      { name: 'Vikram Accountant', role: 'accountant', pin: '4444', id: 'staff_accountant_01' },
-    ];
+    const authBiz = useAuthStore.getState().currentBusiness;
+    const authUser = useAuthStore.getState().user;
+    const isSpiceCafe = businessId === '11111111-1111-1111-1111-111111111111' || authBiz?.name === 'Spice Cafe';
+
+    const ownerName = !isSpiceCafe
+      ? (authBiz?.ownerName || authUser?.fullName || 'Store Owner')
+      : 'Rahul Patel';
+    const bizName = authBiz?.name || 'Store';
+
+    const roles: { name: string; role: UserRole; pin: string; id: string }[] = isSpiceCafe
+      ? [
+          { name: 'Rahul Patel', role: 'owner', pin: '1111', id: '22222222-2222-2222-2222-222222222222' },
+          { name: 'Priya Cashier', role: 'cashier', pin: '1234', id: '22222222-2222-2222-2222-222222222223' },
+          { name: 'Vikram Server', role: 'waiter', pin: '2222', id: '22222222-2222-2222-2222-222222222224' },
+          { name: 'Chef Anand', role: 'kitchen', pin: '3333', id: '22222222-2222-2222-2222-222222222225' },
+          { name: 'Vikram Accountant', role: 'accountant', pin: '4444', id: 'staff_accountant_01' },
+        ]
+      : [
+          { name: ownerName, role: 'owner', pin: '1111', id: authUser?.id || `owner_${businessId}` },
+          { name: `Cashier (${bizName})`, role: 'cashier', pin: '1234', id: `cashier_${businessId}` },
+          { name: `Waiter (${bizName})`, role: 'waiter', pin: '2222', id: `waiter_${businessId}` },
+          { name: `Barista (${bizName})`, role: 'kitchen', pin: '3333', id: `kitchen_${businessId}` },
+        ];
 
     const roster: StaffPinMember[] = [];
     for (const r of roles) {

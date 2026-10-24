@@ -62,6 +62,9 @@ interface SaleDao {
     @Query("SELECT COUNT(*) FROM sales")
     fun getSalesCount(): Flow<Int>
 
+    @Query("SELECT COUNT(*) FROM sales")
+    suspend fun getTotalSalesCount(): Int
+
     @Query("DELETE FROM sales")
     suspend fun clearAllSales()
 }

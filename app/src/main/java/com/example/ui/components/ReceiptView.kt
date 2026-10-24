@@ -288,9 +288,16 @@ fun ThermalReceiptContent(sale: SaleSummary) {
         modifier = Modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
+        // Kwikio Brand Mark
+        KwikioLogoMark(
+            modifier = Modifier.size(24.dp),
+            ringColor = ReceiptInk,
+            dotColor = KwikioCoral
+        )
+        Spacer(modifier = Modifier.height(4.dp))
         // Header
         Text(
-            text = "AURA MART RETAIL",
+            text = "KWIKIO MART RETAIL",
             fontFamily = FontFamily.Monospace,
             fontWeight = FontWeight.Bold,
             fontSize = 15.sp,
@@ -449,7 +456,7 @@ fun ThermalReceiptContent(sale: SaleSummary) {
             textAlign = TextAlign.Center
         )
         Text(
-            text = "GST Tax Invoice • Aura POS India",
+            text = "GST Tax Invoice • Kwikio POS India",
             fontFamily = FontFamily.Monospace,
             fontSize = 9.sp,
             color = ReceiptInk,

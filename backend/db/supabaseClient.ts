@@ -1,14 +1,17 @@
 import pg from 'pg';
-import { SaleRecord } from './database';
+import { SaleRecord, db } from './database';
 
 const { Pool } = pg;
 
+const DIRECT_URL = 'postgresql://postgres:FJm9J64qEHKOL8TA@db.hwdxpvmypxnpfiamcmvs.supabase.co:5432/postgres';
+const POOLER_URL = 'postgresql://postgres.hwdxpvmypxnpfiamcmvs:FJm9J64qEHKOL8TA@aws-0-ap-south-1.pooler.supabase.com:5432/postgres';
+
 function getValidDatabaseUrl(): string {
   const envUrl = process.env.DATABASE_URL || '';
-  if (envUrl && !envUrl.includes('db.hwdxpvmypxnpfiamcmvs.supabase.co')) {
+  if (envUrl && !envUrl.includes('YuhAKoqD4SlrjR8o')) {
     return envUrl;
   }
-  return 'postgresql://postgres.hwdxpvmypxnpfiamcmvs:FJm9J64qEHKOL8TA@aws-0-ap-south-1.pooler.supabase.com:5432/postgres';
+  return DIRECT_URL;
 }
 
 const connectionString = getValidDatabaseUrl();
@@ -23,7 +26,17 @@ try {
     idleTimeoutMillis: 30000,
   });
 } catch (err) {
-  console.warn('Could not initialize Supabase PG pool:', err);
+  console.warn('Could not initialize direct Supabase PG pool, falling back to pooler:', err);
+  try {
+    pool = new Pool({
+      connectionString: POOLER_URL,
+      ssl: { rejectUnauthorized: false },
+      max: 5,
+      idleTimeoutMillis: 30000,
+    });
+  } catch (poolErr) {
+    console.error('Failed to initialize Supabase pooler:', poolErr);
+  }
 }
 
 export function getPool(): pg.Pool | null {
@@ -41,7 +54,8 @@ function getUuid(id: string, receiptNum?: string): string {
 export async function pushSaleToSupabase(s: SaleRecord): Promise<boolean> {
   if (!pool) return false;
 
-  const businessId = '11111111-1111-1111-1111-111111111111';
+  const currentBiz = db.getBusiness();
+  const businessId = (s as any).businessId || currentBiz?.id || '11111111-1111-1111-1111-111111111111';
   const saleId = getUuid(s.id, s.receiptNumber);
   const clientTimestamp = new Date(s.timestamp || Date.now());
 
@@ -66,15 +80,11 @@ export async function pushSaleToSupabase(s: SaleRecord): Promise<boolean> {
   };
 
   try {
-    // 1. Ensure business exists
+    // 1. Ensure business exists without overwriting custom changes
     await pool.query(`
       INSERT INTO businesses (id, name, code, business_type, is_active, timezone, currency, address, phone, tax_identifier)
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-      ON CONFLICT (id) DO UPDATE SET
-        name = EXCLUDED.name,
-        address = EXCLUDED.address,
-        phone = EXCLUDED.phone,
-        tax_identifier = EXCLUDED.tax_identifier;
+      ON CONFLICT (id) DO NOTHING;
     `, [
       businessId,
       'Spice Cafe',
@@ -141,4 +151,21 @@ export async function pushSaleToSupabase(s: SaleRecord): Promise<boolean> {
     console.error(`[Supabase Cloud Sync Error] Could not push sale ${s.receiptNumber}:`, err.message);
     return false;
   }
+}
+
+export async function getBusinessFromSupabase(businessId?: string): Promise<any | null> {
+  if (!pool) return null;
+  try {
+    const query = businessId
+      ? 'SELECT id, name, business_type, address, phone, tax_identifier, currency, timezone, owner_name, owner_phone, owner_email FROM businesses WHERE id = $1 LIMIT 1'
+      : 'SELECT id, name, business_type, address, phone, tax_identifier, currency, timezone, owner_name, owner_phone, owner_email FROM businesses ORDER BY updated_at DESC LIMIT 1';
+    const params = businessId ? [businessId] : [];
+    const res = await pool.query(query, params);
+    if (res.rows && res.rows.length > 0) {
+      return res.rows[0];
+    }
+  } catch (err: any) {
+    console.warn('[Supabase] Could not fetch live business:', err.message);
+  }
+  return null;
 }

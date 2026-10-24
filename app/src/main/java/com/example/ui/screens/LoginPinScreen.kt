@@ -20,8 +20,10 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Backspace
+import androidx.compose.material.icons.filled.Business
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.PointOfSale
+import com.example.ui.components.KwikioAppIconBadge
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -48,6 +50,7 @@ fun LoginPinScreen(
     counterName: String,
     cashierName: String,
     onUnlock: (String) -> Boolean,
+    onOpenBusinessSetup: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     var enteredPin by remember { mutableStateOf("") }
@@ -74,21 +77,8 @@ fun LoginPinScreen(
                     .padding(28.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // Brand Icon
-                Box(
-                    modifier = Modifier
-                        .size(60.dp)
-                        .clip(RoundedCornerShape(16.dp))
-                        .background(MaterialTheme.colorScheme.primary),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.PointOfSale,
-                        contentDescription = "Aura POS",
-                        tint = MaterialTheme.colorScheme.onPrimary,
-                        modifier = Modifier.size(32.dp)
-                    )
-                }
+                // Official Kwikio Brand Icon
+                KwikioAppIconBadge(size = 64.dp)
 
                 Spacer(modifier = Modifier.height(14.dp))
 
@@ -204,11 +194,37 @@ fun LoginPinScreen(
                     color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
                 ) {
                     Text(
-                        text = "Demo Cashier PIN: 1234",
+                        text = "Demo PIN: 1111 (Owner) • 1234 (Cashier)",
                         modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Medium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                // Business Owner & Cloud Setup Action
+                Row(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .clickable { onOpenBusinessSetup() }
+                        .padding(horizontal = 12.dp, vertical = 6.dp)
+                        .testTag("btn_open_business_setup_from_pin"),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Business,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp),
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                    Text(
+                        text = "Business Owner & Cloud Setup",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.primary
                     )
                 }
             }

@@ -4,7 +4,15 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
+    <!-- Kwikio Aperture Open Ring -->
     <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M30,34h48v24c0,8.84 -7.16,16 -16,16h-16c-8.84,0 -16,-7.16 -16,-16v-24zM70,38h8c4.42,0 8,3.58 8,8s-3.58,8 -8,8h-8v-16zM26,80h56v4h-56z"/>
+        android:strokeColor="#14161A"
+        android:strokeWidth="5.6"
+        android:strokeLineCap="round"
+        android:fillColor="#00000000"
+        android:pathData="M78,54 A24,24 0 1,1 60.82,30.99"/>
+    <!-- Kwikio Aperture Vibrant Coral Dot -->
+    <path
+        android:fillColor="#FF5B2E"
+        android:pathData="M73.23,34.14 A5.5,5.5 0 1,0 73.23,45.14 A5.5,5.5 0 1,0 73.23,34.14 Z"/>
 </vector>

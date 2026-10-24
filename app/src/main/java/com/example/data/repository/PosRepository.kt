@@ -246,9 +246,11 @@ class PosRepository(private val database: AppDatabase) {
         isOnline: Boolean
     ): SaleSummary {
         val timestamp = System.currentTimeMillis()
-        val uniqueId = "AUR-${timestamp}-${UUID.randomUUID().toString().take(6).uppercase()}"
-        val receiptSeq = (timestamp % 9000 + 1000)
-        val receiptNum = "AUR-2026-$receiptSeq"
+        val uniqueId = "KWI-${timestamp}-${UUID.randomUUID().toString().take(6).uppercase()}"
+        val year = java.util.Calendar.getInstance().get(java.util.Calendar.YEAR)
+        val existingCount = saleDao.getTotalSalesCount()
+        val seqStr = String.format(java.util.Locale.US, "%04d", existingCount + 1)
+        val receiptNum = "KWI-SPC-$year-$seqStr"
 
         val subtotal = items.sumOf { it.total }
         // 18% GST in India = 9% CGST + 9% SGST

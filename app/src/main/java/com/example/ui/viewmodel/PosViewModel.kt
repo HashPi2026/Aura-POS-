@@ -74,9 +74,63 @@ class PosViewModel(application: Application) : AndroidViewModel(application) {
     // Cashier & Store info
     val currentCashier = "Ramesh Sharma"
     val counterName = "Counter 1"
-    val storeName = "Aura Mart"
-    val storeAddress = "12th Main, Indiranagar, Bengaluru"
-    val storeGstin = "29AAAAA0000A1Z5"
+
+    private val prefs = application.getSharedPreferences("kwikio_pos_prefs", android.content.Context.MODE_PRIVATE)
+
+    private val _storeName = MutableStateFlow(prefs.getString("store_name", "Kwikio Retail & Cafe") ?: "Kwikio Retail & Cafe")
+    val storeNameState: StateFlow<String> = _storeName.asStateFlow()
+    val storeName: String get() = _storeName.value
+
+    private val _storeAddress = MutableStateFlow(prefs.getString("store_address", "12th Main, Indiranagar, Bengaluru") ?: "12th Main, Indiranagar, Bengaluru")
+    val storeAddressState: StateFlow<String> = _storeAddress.asStateFlow()
+    val storeAddress: String get() = _storeAddress.value
+
+    private val _storeGstin = MutableStateFlow(prefs.getString("store_gstin", "29AAAAA0000A1Z5") ?: "29AAAAA0000A1Z5")
+    val storeGstinState: StateFlow<String> = _storeGstin.asStateFlow()
+    val storeGstin: String get() = _storeGstin.value
+
+    private val _businessType = MutableStateFlow(prefs.getString("business_type", "Cafe & Roastery") ?: "Cafe & Roastery")
+    val businessTypeState: StateFlow<String> = _businessType.asStateFlow()
+    val businessType: String get() = _businessType.value
+
+    private val _ownerEmail = MutableStateFlow(prefs.getString("owner_email", "owner@kwikio.pos") ?: "owner@kwikio.pos")
+    val ownerEmailState: StateFlow<String> = _ownerEmail.asStateFlow()
+    val ownerEmail: String get() = _ownerEmail.value
+
+    private val _isCloudLinked = MutableStateFlow(prefs.getBoolean("is_cloud_linked", true))
+    val isCloudLinkedState: StateFlow<Boolean> = _isCloudLinked.asStateFlow()
+    val isCloudLinked: Boolean get() = _isCloudLinked.value
+
+    // Business & Cloud Setup Dialog State
+    private val _showBusinessAuthDialog = MutableStateFlow(false)
+    val showBusinessAuthDialog: StateFlow<Boolean> = _showBusinessAuthDialog.asStateFlow()
+
+    fun openBusinessAuthDialog() {
+        _showBusinessAuthDialog.value = true
+    }
+
+    fun closeBusinessAuthDialog() {
+        _showBusinessAuthDialog.value = false
+    }
+
+    fun updateBusinessProfile(name: String, address: String, gstin: String, type: String, email: String) {
+        _storeName.value = name
+        _storeAddress.value = address
+        _storeGstin.value = gstin
+        _businessType.value = type
+        _ownerEmail.value = email
+        _isCloudLinked.value = true
+        prefs.edit()
+            .putString("store_name", name)
+            .putString("store_address", address)
+            .putString("store_gstin", gstin)
+            .putString("business_type", type)
+            .putString("owner_email", email)
+            .putBoolean("is_cloud_linked", true)
+            .apply()
+        _showBusinessAuthDialog.value = false
+        showBanner("Business '$name' linked to Kwikio Cloud!")
+    }
 
     // Cart State
     private val _cartItems = MutableStateFlow<List<CartItem>>(emptyList())

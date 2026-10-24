@@ -78,6 +78,7 @@ fun HeaderBar(
     cashierName: String,
     counterName: String,
     onLockTerminal: () -> Unit,
+    storeName: String = "Kwikio Retail",
     modifier: Modifier = Modifier,
     isCompact: Boolean = false
 ) {
@@ -101,20 +102,7 @@ fun HeaderBar(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .size(34.dp)
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(MaterialTheme.colorScheme.primary),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = "A",
-                            color = MaterialTheme.colorScheme.onPrimary,
-                            fontWeight = FontWeight.Black,
-                            fontSize = 18.sp
-                        )
-                    }
+                    KwikioAppIconBadge(size = 36.dp)
 
                     Column {
                         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -139,7 +127,7 @@ fun HeaderBar(
                             }
                         }
                         Text(
-                            text = "Retail Terminal • India",
+                            text = "$storeName • Terminal",
                             fontSize = 10.sp,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -244,25 +232,12 @@ fun HeaderBar(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        Box(
-                            modifier = Modifier
-                                .size(42.dp)
-                                .clip(RoundedCornerShape(10.dp))
-                                .background(MaterialTheme.colorScheme.primary),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = "A",
-                                color = MaterialTheme.colorScheme.onPrimary,
-                                fontWeight = FontWeight.Black,
-                                fontSize = 22.sp
-                            )
-                        }
+                        KwikioAppIconBadge(size = 42.dp)
 
                         Column {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Text(
-                                    text = "Aura POS",
+                                    text = "Kwikio POS",
                                     style = MaterialTheme.typography.titleMedium,
                                     fontWeight = FontWeight.Bold,
                                     color = MaterialTheme.colorScheme.onSurface
@@ -282,7 +257,7 @@ fun HeaderBar(
                                 }
                             }
                             Text(
-                                text = "Retail Terminal • India",
+                                text = "$storeName • Retail Terminal",
                                 fontSize = 11.sp,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
