@@ -72,20 +72,20 @@ class PosViewModel(application: Application) : AndroidViewModel(application) {
     val isLocked: StateFlow<Boolean> = _isLocked.asStateFlow()
 
     // Cashier & Store info
-    val currentCashier = "Ramesh Sharma"
-    val counterName = "Counter 1"
+    val currentCashier = "Rahul Patel"
+    val counterName = "Spice Counter 1"
 
     private val prefs = application.getSharedPreferences("kwikio_pos_prefs", android.content.Context.MODE_PRIVATE)
 
-    private val _storeName = MutableStateFlow(prefs.getString("store_name", "Kwikio Retail & Cafe") ?: "Kwikio Retail & Cafe")
+    private val _storeName = MutableStateFlow(prefs.getString("store_name", "Spice Cafe") ?: "Spice Cafe")
     val storeNameState: StateFlow<String> = _storeName.asStateFlow()
     val storeName: String get() = _storeName.value
 
-    private val _storeAddress = MutableStateFlow(prefs.getString("store_address", "12th Main, Indiranagar, Bengaluru") ?: "12th Main, Indiranagar, Bengaluru")
+    private val _storeAddress = MutableStateFlow(prefs.getString("store_address", "Sharthi Residency, Kumbhariya Gam, Surat, 395010") ?: "Sharthi Residency, Kumbhariya Gam, Surat, 395010")
     val storeAddressState: StateFlow<String> = _storeAddress.asStateFlow()
     val storeAddress: String get() = _storeAddress.value
 
-    private val _storeGstin = MutableStateFlow(prefs.getString("store_gstin", "29AAAAA0000A1Z5") ?: "29AAAAA0000A1Z5")
+    private val _storeGstin = MutableStateFlow(prefs.getString("store_gstin", "29AABCS1234F1Z8") ?: "29AABCS1234F1Z8")
     val storeGstinState: StateFlow<String> = _storeGstin.asStateFlow()
     val storeGstin: String get() = _storeGstin.value
 
@@ -93,7 +93,7 @@ class PosViewModel(application: Application) : AndroidViewModel(application) {
     val businessTypeState: StateFlow<String> = _businessType.asStateFlow()
     val businessType: String get() = _businessType.value
 
-    private val _ownerEmail = MutableStateFlow(prefs.getString("owner_email", "owner@kwikio.pos") ?: "owner@kwikio.pos")
+    private val _ownerEmail = MutableStateFlow(prefs.getString("owner_email", "spicecafe@gmail.com") ?: "spicecafe@gmail.com")
     val ownerEmailState: StateFlow<String> = _ownerEmail.asStateFlow()
     val ownerEmail: String get() = _ownerEmail.value
 
@@ -219,7 +219,7 @@ class PosViewModel(application: Application) : AndroidViewModel(application) {
 
     // ================= Cashier PIN =================
     fun unlockWithPin(pin: String): Boolean {
-        return if (pin == "1234" || pin.length == 4) {
+        return if (pin == "1111" || pin == "1234" || pin.length == 4) {
             _isLocked.value = false
             true
         } else {

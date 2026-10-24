@@ -12,6 +12,7 @@ function expressApiPlugin(): Plugin {
 }
 
 export default defineConfig({
+  base: './',
   plugins: [react(), expressApiPlugin()],
   server: {
     port: 3000,

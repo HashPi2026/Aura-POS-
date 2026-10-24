@@ -3,7 +3,10 @@
  * Provides typed HTTP communication between Frontend and Backend
  */
 
-const API_BASE = '/api';
+const BACKEND_PROD_URL = 'https://ais-dev-ji3fw7pbjdyz6ephhubu3h-672731157117.asia-southeast1.run.app';
+const API_BASE = (typeof window !== 'undefined' && (window.location.origin.startsWith('file:') || window.location.origin === 'null'))
+  ? `${BACKEND_PROD_URL}/api`
+  : '/api';
 
 export interface ApiResponse<T = any> {
   success?: boolean;

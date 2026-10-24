@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Kwikio POS Aperture Logo Mark -->
+  <rect width="512" height="512" rx="112" fill="#FAF9F5"/>
+  <circle cx="256" cy="256" r="160" fill="none" stroke="#14161A" stroke-width="38" stroke-linecap="round" stroke-dasharray="775 200"/>
+  <circle cx="384" cy="159.5" r="38" fill="#FF5B2E"/>
+</svg>

@@ -151,9 +151,9 @@ fun PosApp(viewModel: PosViewModel) {
                         isOnline = isOnline,
                         isSyncing = isSyncing,
                         unsyncedCount = unsyncedCount,
-                        onToggleOnline = { viewModel.toggleOnlineStatus() },
+                        onToggleOnline = { viewModel.toggleOnline() },
                         printerConnected = printerConnected,
-                        onTogglePrinter = { viewModel.togglePrinterConnection() },
+                        onTogglePrinter = { viewModel.togglePrinter() },
                         isDarkMode = isDarkMode,
                         onToggleDarkMode = { viewModel.toggleDarkMode() },
                         cashierName = viewModel.currentCashier,
@@ -164,194 +164,141 @@ fun PosApp(viewModel: PosViewModel) {
                     )
                 },
                 bottomBar = {
-                    if (isCompact) {
-                        Surface(
-                            tonalElevation = 6.dp,
-                            shadowElevation = 8.dp,
-                            color = MaterialTheme.colorScheme.surface
-                        ) {
-                            NavigationBar(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .testTag("mobile_bottom_nav"),
-                                containerColor = MaterialTheme.colorScheme.surface,
-                                tonalElevation = 4.dp
-                            ) {
-                                NavigationBarItem(
-                                    selected = activeTab == ScreenTab.CHECKOUT,
-                                    onClick = { viewModel.setActiveTab(ScreenTab.CHECKOUT) },
-                                    icon = {
-                                        Icon(Icons.Default.PointOfSale, contentDescription = "Checkout")
-                                    },
-                                    label = {
-                                        Text("Checkout", fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
-                                    },
-                                    modifier = Modifier.testTag("nav_checkout_bottom")
-                                )
-                                NavigationBarItem(
-                                    selected = activeTab == ScreenTab.SYNC_QUEUE,
-                                    onClick = { viewModel.setActiveTab(ScreenTab.SYNC_QUEUE) },
-                                    icon = {
-                                        if (unsyncedCount > 0) {
-                                            BadgedBox(badge = { Badge { Text("$unsyncedCount") } }) {
-                                                Icon(Icons.Default.Sync, contentDescription = "Queue")
+                    NavigationBar(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("bottom_nav_bar")
+                    ) {
+                        NavigationBarItem(
+                            selected = activeTab == ScreenTab.CHECKOUT,
+                            onClick = { viewModel.setActiveTab(ScreenTab.CHECKOUT) },
+                            icon = { Icon(Icons.Default.PointOfSale, contentDescription = "Checkout") },
+                            label = { Text("Checkout") },
+                            modifier = Modifier.testTag("nav_checkout")
+                        )
+
+                        NavigationBarItem(
+                            selected = activeTab == ScreenTab.SYNC_QUEUE,
+                            onClick = { viewModel.setActiveTab(ScreenTab.SYNC_QUEUE) },
+                            icon = {
+                                if (unsyncedCount > 0) {
+                                    BadgedBox(
+                                        badge = {
+                                            Badge {
+                                                Text(unsyncedCount.toString())
                                             }
-                                        } else {
-                                            Icon(Icons.Default.Sync, contentDescription = "Queue")
                                         }
-                                    },
-                                    label = {
-                                        Text("Queue", fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
-                                    },
-                                    modifier = Modifier.testTag("nav_queue_bottom")
-                                )
-                                NavigationBarItem(
-                                    selected = activeTab == ScreenTab.SALES_HISTORY,
-                                    onClick = { viewModel.setActiveTab(ScreenTab.SALES_HISTORY) },
-                                    icon = {
-                                        Icon(Icons.Default.History, contentDescription = "History")
-                                    },
-                                    label = {
-                                        Text("History", fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
-                                    },
-                                    modifier = Modifier.testTag("nav_history_bottom")
-                                )
-                                NavigationBarItem(
-                                    selected = activeTab == ScreenTab.SETTINGS,
-                                    onClick = { viewModel.setActiveTab(ScreenTab.SETTINGS) },
-                                    icon = {
-                                        Icon(Icons.Default.Settings, contentDescription = "Settings")
-                                    },
-                                    label = {
-                                        Text("Settings", fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
-                                    },
-                                    modifier = Modifier.testTag("nav_settings_bottom")
-                                )
-                            }
-                        }
+                                    ) {
+                                        Icon(Icons.Default.Sync, contentDescription = "Sync Queue")
+                                    }
+                                } else {
+                                    Icon(Icons.Default.Sync, contentDescription = "Sync Queue")
+                                }
+                            },
+                            label = { Text("Sync Queue") },
+                            modifier = Modifier.testTag("nav_sync_queue")
+                        )
+
+                        NavigationBarItem(
+                            selected = activeTab == ScreenTab.SALES_HISTORY,
+                            onClick = { viewModel.setActiveTab(ScreenTab.SALES_HISTORY) },
+                            icon = { Icon(Icons.Default.History, contentDescription = "History") },
+                            label = { Text("History") },
+                            modifier = Modifier.testTag("nav_history")
+                        )
+
+                        NavigationBarItem(
+                            selected = activeTab == ScreenTab.SETTINGS,
+                            onClick = { viewModel.setActiveTab(ScreenTab.SETTINGS) },
+                            icon = { Icon(Icons.Default.Settings, contentDescription = "Settings") },
+                            label = { Text("Settings") },
+                            modifier = Modifier.testTag("nav_settings")
+                        )
                     }
                 }
-            ) { innerPadding ->
+            ) { paddingValues ->
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(innerPadding)
-                        .background(MaterialTheme.colorScheme.background)
+                        .padding(paddingValues)
                 ) {
-                // Tab Content
-                when (activeTab) {
-                    ScreenTab.CHECKOUT -> {
-                        CheckoutScreen(
-                            products = products,
-                            cartItems = cartItems,
-                            cartTotals = cartTotals,
-                            searchQuery = searchQuery,
-                            onSearchQueryChange = { viewModel.setSearchQuery(it) },
-                            selectedCategory = selectedCategory,
-                            onCategorySelect = { viewModel.setSelectedCategory(it) },
-                            onAddToCart = { viewModel.addItemToCart(it) },
-                            onDecrementItem = { viewModel.decrementItemQuantity(it) },
-                            onRemoveItem = { viewModel.removeItemFromCart(it) },
-                            onClearCart = { viewModel.clearCart() },
-                            onChargeClick = { viewModel.openPaymentDialog() },
-                            lastRemovedItem = lastRemovedItem,
-                            onUndoRemove = { viewModel.undoRemoveItem() }
-                        )
-                    }
+                    when (activeTab) {
+                        ScreenTab.CHECKOUT -> {
+                            CheckoutScreen(
+                                products = products,
+                                cartItems = cartItems,
+                                cartTotals = cartTotals,
+                                searchQuery = searchQuery,
+                                onSearchQueryChange = { viewModel.setSearchQuery(it) },
+                                selectedCategory = selectedCategory,
+                                onCategorySelect = { viewModel.setSelectedCategory(it) },
+                                onAddToCart = { viewModel.addItemToCart(it) },
+                                onDecrementItem = { viewModel.decrementItem(it) },
+                                onRemoveItem = { viewModel.removeItem(it) },
+                                onClearCart = { viewModel.clearCart() },
+                                onChargeClick = { viewModel.openPaymentDialog() },
+                                lastRemovedItem = lastRemovedItem,
+                                onUndoRemove = { viewModel.undoRemoveItem() }
+                            )
+                        }
 
-                    ScreenTab.SYNC_QUEUE -> {
-                        SyncQueueScreen(
-                            sales = sales,
-                            isOnline = isOnline,
-                            isSyncing = isSyncing,
-                            unsyncedCount = unsyncedCount,
-                            simulateServerFailure = simulateServerFailure,
-                            onToggleServerFailure = { viewModel.toggleServerFailureSimulation() },
-                            onSyncNow = { viewModel.triggerBackgroundSync() },
-                            onRetrySale = { id -> viewModel.retrySingleSale(id) },
-                            onViewReceipt = { sale -> viewModel.viewPastSaleReceipt(sale) }
-                        )
-                    }
+                        ScreenTab.SYNC_QUEUE -> {
+                            SyncQueueScreen(
+                                sales = sales,
+                                isOnline = isOnline,
+                                isSyncing = isSyncing,
+                                unsyncedCount = unsyncedCount,
+                                simulateServerFailure = simulateServerFailure,
+                                onToggleServerFailure = { viewModel.toggleSimulateServerFailure() },
+                                onSyncNow = { viewModel.triggerManualSync() },
+                                onRetrySale = { viewModel.retrySingleSale(it) },
+                                onViewReceipt = { summary ->
+                                    viewModel.openReceiptDialog(summary)
+                                }
+                            )
+                        }
 
-                    ScreenTab.SALES_HISTORY -> {
-                        SalesHistoryScreen(
-                            sales = sales,
-                            onViewReceipt = { sale -> viewModel.viewPastSaleReceipt(sale) },
-                            storeName = storeName,
-                            counterName = viewModel.counterName,
-                            cashierName = viewModel.currentCashier,
-                            isCompact = isCompact,
-                            onGoToCheckout = { viewModel.setActiveTab(ScreenTab.CHECKOUT) }
-                        )
-                    }
+                        ScreenTab.SALES_HISTORY -> {
+                            SalesHistoryScreen(
+                                sales = sales,
+                                onViewReceipt = { summary ->
+                                    viewModel.openReceiptDialog(summary)
+                                },
+                                storeName = storeName,
+                                counterName = viewModel.counterName,
+                                cashierName = viewModel.currentCashier,
+                                isCompact = isCompact,
+                                onGoToCheckout = { viewModel.setActiveTab(ScreenTab.CHECKOUT) }
+                            )
+                        }
 
-                    ScreenTab.SETTINGS -> {
-                        SettingsScreen(
-                            storeName = storeName,
-                            storeAddress = storeAddress,
-                            storeGstin = storeGstin,
-                            counterName = viewModel.counterName,
-                            cashierName = viewModel.currentCashier,
-                            printerConnected = printerConnected,
-                            printerModel = viewModel.printerModel,
-                            onTogglePrinter = { viewModel.togglePrinterConnection() },
-                            onTestPrint = { viewModel.printCurrentReceipt() },
-                            isOnline = isOnline,
-                            onToggleOnline = { viewModel.toggleOnlineStatus() },
-                            simulateServerFailure = simulateServerFailure,
-                            onToggleServerFailure = { viewModel.toggleServerFailureSimulation() },
-                            isDarkMode = isDarkMode,
-                            onToggleDarkMode = { viewModel.toggleDarkMode() },
-                            onLockTerminal = { viewModel.lockTerminal() },
-                            onOpenBusinessSetup = { viewModel.openBusinessAuthDialog() }
-                        )
-                    }
-                }
-
-                // Notification Banner (e.g. "Saved on this device. Will sync when online." / "Synced N sales in X ms.")
-                AnimatedVisibility(
-                    visible = bannerMessage != null,
-                    enter = slideInVertically(initialOffsetY = { it }) + fadeIn(),
-                    exit = slideOutVertically(targetOffsetY = { it }) + fadeOut(),
-                    modifier = Modifier
-                        .align(Alignment.BottomCenter)
-                        .padding(bottom = 20.dp)
-                ) {
-                    bannerMessage?.let { msg ->
-                        val isOfflineReassurance = msg.contains("Saved on this device", ignoreCase = true)
-                        Surface(
-                            shape = RoundedCornerShape(12.dp),
-                            color = if (isOfflineReassurance) AmberOfflineContainer else GreenSuccessContainer,
-                            tonalElevation = 6.dp,
-                            shadowElevation = 6.dp,
-                            modifier = Modifier
-                                .padding(horizontal = 24.dp)
-                                .testTag("notification_banner")
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Info,
-                                    contentDescription = null,
-                                    tint = if (isOfflineReassurance) AmberOfflineText else GreenSuccessText
-                                )
-                                Spacer(modifier = Modifier.width(10.dp))
-                                Text(
-                                    text = msg,
-                                    fontSize = 13.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = if (isOfflineReassurance) AmberOfflineText else GreenSuccessText
-                                )
-                            }
+                        ScreenTab.SETTINGS -> {
+                            SettingsScreen(
+                                storeName = storeName,
+                                storeAddress = storeAddress,
+                                storeGstin = storeGstin,
+                                counterName = viewModel.counterName,
+                                cashierName = viewModel.currentCashier,
+                                printerConnected = printerConnected,
+                                printerModel = "Kwikio 58mm Thermal ESC/POS (BT-01)",
+                                onTogglePrinter = { viewModel.togglePrinter() },
+                                onTestPrint = { viewModel.testPrintReceipt() },
+                                isOnline = isOnline,
+                                onToggleOnline = { viewModel.toggleOnline() },
+                                simulateServerFailure = simulateServerFailure,
+                                onToggleServerFailure = { viewModel.toggleSimulateServerFailure() },
+                                isDarkMode = isDarkMode,
+                                onToggleDarkMode = { viewModel.toggleDarkMode() },
+                                onLockTerminal = { viewModel.lockTerminal() },
+                                onOpenBusinessSetup = { viewModel.openBusinessAuthDialog() }
+                            )
                         }
                     }
                 }
             }
         }
 
-        // Payment Modal Dialog
+        // Dialogs
         if (showPaymentDialog) {
             PaymentDialog(
                 totals = cartTotals,
@@ -364,19 +311,17 @@ fun PosApp(viewModel: PosViewModel) {
             )
         }
 
-        // Receipt Confirmation Dialog
         if (showReceiptDialog && completedSale != null) {
             ReceiptConfirmationDialog(
                 sale = completedSale!!,
                 printStatus = printStatus,
                 printerConnected = printerConnected,
-                onPrint = { viewModel.printCurrentReceipt() },
-                onNewSale = { viewModel.closeReceiptDialog() },
+                onPrint = { viewModel.printReceipt(completedSale!!) },
+                onNewSale = { viewModel.startNewSale() },
                 onDismiss = { viewModel.closeReceiptDialog() }
             )
         }
 
-        // Business & Cloud Setup Dialog
         if (showBusinessAuthDialog) {
             BusinessAuthDialog(
                 currentName = storeName,
@@ -384,13 +329,48 @@ fun PosApp(viewModel: PosViewModel) {
                 currentGstin = storeGstin,
                 currentType = businessType,
                 currentEmail = ownerEmail,
-                onSaveProfile = { name, addr, gstin, type, email ->
-                    viewModel.updateBusinessProfile(name, addr, gstin, type, email)
+                onSaveProfile = { name, address, gstin, type, email ->
+                    viewModel.updateBusinessProfile(name, address, gstin, type, email)
                 },
                 onDismiss = { viewModel.closeBusinessAuthDialog() }
             )
         }
+
+        // Banner notifications
+        AnimatedVisibility(
+            visible = bannerMessage != null,
+            enter = slideInVertically(initialOffsetY = { it }) + fadeIn(),
+            exit = slideOutVertically(targetOffsetY = { it }) + fadeOut(),
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(bottom = 72.dp, start = 16.dp, end = 16.dp)
+        ) {
+            bannerMessage?.let { msg ->
+                val isSuccess = msg.contains("synced", ignoreCase = true) || msg.contains("success", ignoreCase = true)
+                Surface(
+                    color = if (isSuccess) GreenSuccessContainer else AmberOfflineContainer,
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.shadow(8.dp, RoundedCornerShape(12.dp))
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Info,
+                            contentDescription = null,
+                            tint = if (isSuccess) GreenSuccessText else AmberOfflineText
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = msg,
+                            color = if (isSuccess) GreenSuccessText else AmberOfflineText,
+                            fontWeight = FontWeight.Medium,
+                            fontSize = 14.sp
+                        )
+                    }
+                }
+            }
+        }
     }
 }
-}
-
