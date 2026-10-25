@@ -509,4 +509,19 @@ class PosViewModel(application: Application) : AndroidViewModel(application) {
     fun dismissBanner() {
         _bannerMessage.value = null
     }
+
+    // Convenience alias methods matching MainActivity calls
+    fun decrementItem(productId: String) = decrementItemQuantity(productId)
+    fun removeItem(productId: String) = removeItemFromCart(productId)
+    fun toggleOnline() = toggleOnlineStatus()
+    fun togglePrinter() = togglePrinterConnection()
+    fun toggleSimulateServerFailure() = toggleServerFailureSimulation()
+    fun triggerManualSync() = triggerBackgroundSync()
+    fun openReceiptDialog(sale: SaleSummary) = viewPastSaleReceipt(sale)
+    fun testPrintReceipt() = printCurrentReceipt()
+    fun printReceipt(sale: SaleSummary) = printCurrentReceipt()
+    fun startNewSale() {
+        closeReceiptDialog()
+        clearCart()
+    }
 }

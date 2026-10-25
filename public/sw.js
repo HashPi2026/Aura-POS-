@@ -1,4 +1,4 @@
-const CACHE_NAME = 'aura-pos-v25';
+const CACHE_NAME = 'aura-pos-v26';
 
 self.addEventListener('install', (event) => {
   self.skipWaiting();

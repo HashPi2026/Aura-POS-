@@ -3,15 +3,18 @@ import { SaleRecord, db } from './database';
 
 const { Pool } = pg;
 
-const DIRECT_URL = 'postgresql://postgres:FJm9J64qEHKOL8TA@db.hwdxpvmypxnpfiamcmvs.supabase.co:5432/postgres';
-const POOLER_URL = 'postgresql://postgres.hwdxpvmypxnpfiamcmvs:FJm9J64qEHKOL8TA@aws-0-ap-south-1.pooler.supabase.com:5432/postgres';
+// Supabase PostgreSQL Connection Strings
+// POOLER_URL supports IPv4 and IPv6 universally (works on Render, Vercel, AWS, local dev)
+export const POOLER_URL = 'postgresql://postgres.hwdxpvmypxnpfiamcmvs:FJm9J64qEHKOL8TA@aws-0-ap-south-1.pooler.supabase.com:5432/postgres';
+export const DIRECT_URL = 'postgresql://postgres:FJm9J64qEHKOL8TA@db.hwdxpvmypxnpfiamcmvs.supabase.co:5432/postgres';
 
 function getValidDatabaseUrl(): string {
   const envUrl = process.env.DATABASE_URL || '';
   if (envUrl && !envUrl.includes('YuhAKoqD4SlrjR8o')) {
     return envUrl;
   }
-  return DIRECT_URL;
+  // Default to POOLER_URL for maximum compatibility across cloud hosts like Render
+  return POOLER_URL;
 }
 
 const connectionString = getValidDatabaseUrl();
@@ -22,41 +25,35 @@ try {
   pool = new Pool({
     connectionString,
     ssl: { rejectUnauthorized: false },
-    max: 5,
+    max: 10,
     idleTimeoutMillis: 30000,
+    connectionTimeoutMillis: 10000,
+  });
+  pool.on('error', (err) => {
+    console.warn('[Supabase Pool Warning]', err.message);
   });
 } catch (err) {
-  console.warn('Could not initialize direct Supabase PG pool, falling back to pooler:', err);
-  try {
-    pool = new Pool({
-      connectionString: POOLER_URL,
-      ssl: { rejectUnauthorized: false },
-      max: 5,
-      idleTimeoutMillis: 30000,
-    });
-  } catch (poolErr) {
-    console.error('Failed to initialize Supabase pooler:', poolErr);
-  }
+  console.error('Failed to initialize Supabase pool:', err);
 }
 
 export function getPool(): pg.Pool | null {
   return pool;
 }
 
-function getUuid(id: string, receiptNum?: string): string {
-  if (id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) {
+export function formatSaleId(id: string, receiptNum?: string): string {
+  if (id && id.startsWith('KWI-SAL-')) {
     return id;
   }
-  const num = (receiptNum || '').replace(/[^0-9]/g, '').slice(-4).padStart(4, '0') || '1001';
-  return `00000000-0000-0000-0000-00000000${num}`;
+  const digits = (receiptNum || id || '').replace(/[^0-9]/g, '').slice(-4).padStart(4, '0') || '0001';
+  return `KWI-SAL-${digits}`;
 }
 
 export async function pushSaleToSupabase(s: SaleRecord): Promise<boolean> {
   if (!pool) return false;
 
   const currentBiz = db.getBusiness();
-  const businessId = (s as any).businessId || currentBiz?.id || '11111111-1111-1111-1111-111111111111';
-  const saleId = getUuid(s.id, s.receiptNumber);
+  const businessId = (s as any).businessId || currentBiz?.id || 'KWI-BUS_001';
+  const saleId = formatSaleId(s.id, s.receiptNumber);
   const clientTimestamp = new Date(s.timestamp || Date.now());
 
   const subtotalPaise = Math.round((s.subtotal || 0) * 100);
@@ -68,8 +65,8 @@ export async function pushSaleToSupabase(s: SaleRecord): Promise<boolean> {
 
   const snapshot = {
     receipt_number: s.receiptNumber,
-    cashier_name: s.cashierName || 'Priya Cashier',
-    counter_name: s.counterName || 'Espresso Bar 1',
+    cashier_name: s.cashierName || 'Rahul Patel',
+    counter_name: s.counterName || 'Counter 1',
     items: s.items || [],
     payment_method: s.paymentMethod || 'CASH',
     totals: {
@@ -80,25 +77,25 @@ export async function pushSaleToSupabase(s: SaleRecord): Promise<boolean> {
   };
 
   try {
-    // 1. Ensure business exists without overwriting custom changes
+    // 1. Ensure business exists
     await pool.query(`
       INSERT INTO businesses (id, name, code, business_type, is_active, timezone, currency, address, phone, tax_identifier)
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
       ON CONFLICT (id) DO NOTHING;
     `, [
       businessId,
-      'Spice Cafe',
-      'SPICE-CAFE-01',
+      currentBiz?.name || 'Spice Cafe',
+      businessId,
       'CAFE',
       true,
       'Asia/Kolkata',
       'INR',
-      '100ft Road, Indiranagar, Bengaluru, Karnataka',
-      '+91 80 2520 8900',
-      '29AABCS1234F1Z8',
+      currentBiz?.address || 'Surat, Gujarat',
+      currentBiz?.phone || '+91 80 2520 8900',
+      currentBiz?.taxIdentifier || '29AABCS1234F1Z8',
     ]);
 
-    // 2. Insert sale
+    // 2. Insert or update sale record
     await pool.query(`
       INSERT INTO sales (
         id, business_id, invoice_no, order_type,
@@ -109,13 +106,13 @@ export async function pushSaleToSupabase(s: SaleRecord): Promise<boolean> {
       ON CONFLICT (id) DO UPDATE SET
         invoice_no = EXCLUDED.invoice_no,
         total_paise = EXCLUDED.total_paise,
-        status = EXCLUDED.status,
-        receipt_snapshot = EXCLUDED.receipt_snapshot;
+        receipt_snapshot = EXCLUDED.receipt_snapshot,
+        updated_at = NOW();
     `, [
       saleId,
       businessId,
       s.receiptNumber,
-      s.orderType || 'DINE_IN',
+      'DINE_IN',
       subtotalPaise,
       0,
       taxPaise,
@@ -123,49 +120,42 @@ export async function pushSaleToSupabase(s: SaleRecord): Promise<boolean> {
       sgstPaise,
       roundOffPaise,
       totalPaise,
-      'PAID',
+      'COMPLETED',
       clientTimestamp,
       JSON.stringify(snapshot),
     ]);
 
-    // 3. Insert payment
-    const paymentId = `00000000-0000-0000-0001-00000000${(s.receiptNumber || '').replace(/[^0-9]/g, '').slice(-4).padStart(4, '0')}`;
-    await pool.query(`
-      INSERT INTO payments (
-        id, sale_id, method, amount_paise, reference
-      )
-      VALUES ($1, $2, $3, $4, $5)
-      ON CONFLICT (id) DO UPDATE SET
-        amount_paise = EXCLUDED.amount_paise;
-    `, [
-      paymentId,
-      saleId,
-      s.paymentMethod || 'CASH',
-      totalPaise,
-      s.upiRef || 'TERMINAL_TXN',
-    ]);
+    // 3. Insert line items
+    if (Array.isArray(s.items)) {
+      for (let i = 0; i < s.items.length; i++) {
+        const item = s.items[i];
+        const itemId = `${saleId}-ITEM-${String(i + 1).padStart(2, '0')}`;
+        const itemTotalPaise = Math.round((item.total || item.price * item.quantity) * 100);
+        const itemPricePaise = Math.round(item.price * 100);
 
-    console.log(`[Supabase Cloud Sync] Pushed sale ${s.receiptNumber} (${saleId}) to Supabase`);
+        await pool.query(`
+          INSERT INTO sale_items (
+            id, sale_id, product_id, product_name, quantity, unit_price_paise, total_paise
+          )
+          VALUES ($1, $2, $3, $4, $5, $6, $7)
+          ON CONFLICT (id) DO UPDATE SET
+            quantity = EXCLUDED.quantity,
+            total_paise = EXCLUDED.total_paise;
+        `, [
+          itemId,
+          saleId,
+          item.productId || `KWI-PRD-${String(i + 1).padStart(4, '0')}`,
+          item.name,
+          item.quantity,
+          itemPricePaise,
+          itemTotalPaise,
+        ]).catch(() => {});
+      }
+    }
+
     return true;
   } catch (err: any) {
-    console.error(`[Supabase Cloud Sync Error] Could not push sale ${s.receiptNumber}:`, err.message);
+    console.error('Failed to push sale to Supabase:', err.message);
     return false;
   }
-}
-
-export async function getBusinessFromSupabase(businessId?: string): Promise<any | null> {
-  if (!pool) return null;
-  try {
-    const query = businessId
-      ? 'SELECT id, name, business_type, address, phone, tax_identifier, currency, timezone, owner_name, owner_phone, owner_email FROM businesses WHERE id = $1 LIMIT 1'
-      : 'SELECT id, name, business_type, address, phone, tax_identifier, currency, timezone, owner_name, owner_phone, owner_email FROM businesses ORDER BY updated_at DESC LIMIT 1';
-    const params = businessId ? [businessId] : [];
-    const res = await pool.query(query, params);
-    if (res.rows && res.rows.length > 0) {
-      return res.rows[0];
-    }
-  } catch (err: any) {
-    console.warn('[Supabase] Could not fetch live business:', err.message);
-  }
-  return null;
 }

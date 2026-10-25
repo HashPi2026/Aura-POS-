@@ -93,6 +93,23 @@ export const restApi = {
       }),
   },
 
+  // Staff & Employees
+  staff: {
+    getAll: (businessId?: string) =>
+      fetchJson<{ success: boolean; staff: any[] }>(
+        `/staff${businessId ? `?businessId=${encodeURIComponent(businessId)}` : ''}`
+      ),
+    create: (employee: { fullName: string; email: string; role: string; password?: string; pin?: string; businessId?: string }) =>
+      fetchJson('/staff', {
+        method: 'POST',
+        body: JSON.stringify(employee),
+      }),
+    delete: (id: string) =>
+      fetchJson(`/staff/${id}`, {
+        method: 'DELETE',
+      }),
+  },
+
   // Sales & Offline-First Cloud Sync
   sales: {
     getAll: (businessId?: string) =>

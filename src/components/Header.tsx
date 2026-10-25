@@ -15,6 +15,7 @@ import {
   ChefHat,
   Package,
   Download,
+  LogOut,
 } from 'lucide-react';
 import { usePosStore } from '../store/usePosStore';
 import { useAuthStore } from '../store/useAuthStore';
@@ -257,7 +258,7 @@ export const Header: React.FC = () => {
           {/* Active Staff Member Profile & Quick Switch Chip */}
           <button
             onClick={lockTerminal}
-            title="Active Staff Member • Click to Switch Staff or Lock"
+            title="Active Account • Click to Switch Account or Sign Out"
             className="flex items-center gap-1.5 sm:gap-2 pl-1.5 sm:pl-2 pr-2 sm:pr-2.5 py-1 sm:py-1.5 rounded-xl bg-teal-50 dark:bg-teal-950/60 text-teal-900 dark:text-teal-200 hover:bg-teal-100 dark:hover:bg-teal-900/60 transition-colors border border-teal-200 dark:border-teal-800/80 shadow-2xs"
           >
             <div className="w-6 h-6 rounded-lg bg-teal-600 text-white flex items-center justify-center font-bold text-xs">
@@ -268,10 +269,10 @@ export const Header: React.FC = () => {
                 {cashierName}
               </span>
               <span className="text-[10px] text-teal-600 dark:text-teal-400 uppercase font-semibold leading-tight">
-                {currentRole || 'Staff'} • Switch PIN
+                {currentRole || 'Staff'} • Sign Out
               </span>
             </div>
-            <Lock className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400 ml-1" />
+            <LogOut className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400 ml-1" />
           </button>
         </div>
       </div>

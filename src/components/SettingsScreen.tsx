@@ -11,10 +11,13 @@ import {
   Check,
   ArrowRight,
   Download,
+  Smartphone,
 } from 'lucide-react';
 import { usePosStore } from '../store/usePosStore';
 import { ThemeSelector } from './ThemeSelector';
 import { StoreProfileSettings } from './StoreProfileSettings';
+import { StaffManagementSettings } from './StaffManagementSettings';
+import { ErrorBoundary } from './ErrorBoundary';
 
 export const SettingsScreen: React.FC = () => {
   const {
@@ -65,7 +68,14 @@ export const SettingsScreen: React.FC = () => {
       </div>
 
       {/* Store Profile & Receipt Details Management */}
-      <StoreProfileSettings />
+      <ErrorBoundary fallbackTitle="Store Profile Settings Error">
+        <StoreProfileSettings />
+      </ErrorBoundary>
+
+      {/* 0. Employee & Staff Credentials Management */}
+      <ErrorBoundary fallbackTitle="Staff Management Error">
+        <StaffManagementSettings />
+      </ErrorBoundary>
 
       {/* 0A. Menu & Products Manager Shortcut */}
       <div className="bg-white dark:bg-slate-900 rounded-2xl p-5 border border-slate-200 dark:border-slate-800 shadow-xs flex items-center justify-between gap-4">
@@ -93,7 +103,9 @@ export const SettingsScreen: React.FC = () => {
       </div>
 
       {/* 0B. Counter Color Theme Selector */}
-      <ThemeSelector />
+      <ErrorBoundary fallbackTitle="Theme Selector Error">
+        <ThemeSelector />
+      </ErrorBoundary>
 
       {/* 1. Bluetooth Thermal Printer Configuration */}
       <div className="bg-white dark:bg-slate-900 rounded-2xl p-5 border border-slate-200 dark:border-slate-800 shadow-xs flex flex-col gap-4">

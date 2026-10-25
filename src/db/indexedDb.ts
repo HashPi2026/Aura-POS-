@@ -53,6 +53,7 @@ export interface KOTRecord {
 
 export interface Sale {
   id: string;
+  businessId?: string;
   receiptNumber: string; // e.g. AUR-CAFE-2026-1042
   timestamp: number;
   cashierName: string;

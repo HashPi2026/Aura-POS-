@@ -6,6 +6,7 @@ import salesRoutes from './routes/sales.routes';
 import tablesRoutes from './routes/tables.routes';
 import kotRoutes from './routes/kot.routes';
 import businessRoutes from './routes/business.routes';
+import staffRoutes from './routes/staff.routes';
 import healthRoutes from './routes/health.routes';
 import supabaseRoutes from './routes/supabase.routes';
 
@@ -32,6 +33,7 @@ backendApp.use('/api/sales', salesRoutes);
 backendApp.use('/api/tables', tablesRoutes);
 backendApp.use('/api/kot', kotRoutes);
 backendApp.use('/api/business', businessRoutes);
+backendApp.use('/api/staff', staffRoutes);
 backendApp.use('/api/supabase', supabaseRoutes);
 
 // Catch-all 404 for unhandled API paths

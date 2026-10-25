@@ -376,6 +376,38 @@ class PosDatabase {
     return true;
   }
 
+  public addStaffMember(staff: Partial<StaffItem> & { fullName: string; email: string }): StaffItem {
+    const newStaff: StaffItem = {
+      id: staff.id || `KWI-MEM-${Date.now().toString().slice(-4)}`,
+      userId: staff.userId || staff.id || `KWI-USR-${Date.now().toString().slice(-4)}`,
+      fullName: staff.fullName,
+      email: staff.email,
+      role: (staff.role as any) || 'cashier',
+      pin: staff.pin || '1234',
+      isActive: staff.isActive !== undefined ? staff.isActive : true,
+    };
+    const idx = this.data.staff.findIndex(
+      (s) => s.id === newStaff.id || s.userId === newStaff.userId || s.email.toLowerCase() === newStaff.email.toLowerCase()
+    );
+    if (idx >= 0) {
+      this.data.staff[idx] = { ...this.data.staff[idx], ...newStaff };
+    } else {
+      this.data.staff.push(newStaff);
+    }
+    this.saveToDisk();
+    return newStaff;
+  }
+
+  public deleteStaffMember(id: string): boolean {
+    const before = this.data.staff.length;
+    this.data.staff = this.data.staff.filter((s) => s.id !== id && s.userId !== id);
+    if (this.data.staff.length !== before) {
+      this.saveToDisk();
+      return true;
+    }
+    return false;
+  }
+
   // Products
   public getProducts(): ProductItem[] {
     return [...this.data.products];

@@ -15,6 +15,7 @@ import {
   Wifi,
   WifiOff,
   ChevronRight,
+  LogOut,
 } from 'lucide-react';
 import { usePosStore, ScreenTab } from '../store/usePosStore';
 import { useAuthStore } from '../store/useAuthStore';
@@ -243,8 +244,8 @@ export const MobileBottomNav: React.FC = () => {
                   }}
                   className="px-2.5 py-1.5 rounded-lg bg-teal-600 text-white text-xs font-bold flex items-center gap-1 shadow-2xs hover:bg-teal-700 transition-colors"
                 >
-                  <Lock className="w-3.5 h-3.5" />
-                  <span>Lock Terminal</span>
+                  <LogOut className="w-3.5 h-3.5" />
+                  <span>Sign Out</span>
                 </button>
               </div>
 

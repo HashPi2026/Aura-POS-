@@ -12,6 +12,7 @@ import { ReceiptModal } from './components/ReceiptModal';
 import { KotTicketModal } from './components/KotTicketModal';
 import { LoginScreen } from './components/LoginScreen';
 import { MobileBottomNav } from './components/MobileBottomNav';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import { usePosStore } from './store/usePosStore';
 import { useAuthStore } from './store/useAuthStore';
 import { Info, WifiOff, Coffee } from 'lucide-react';
@@ -43,8 +44,8 @@ export const App: React.FC = () => {
   }
 
   // SaaS Login Gate:
-  // Requires authentication (!user) or terminal unlocked (!isLocked) to access POS
-  const showLoginGate = !user || isLocked;
+  // Requires authentication (!user) to access POS
+  const showLoginGate = !user;
 
   if (showLoginGate) {
     return (
@@ -65,13 +66,15 @@ export const App: React.FC = () => {
 
       {/* Main Tab Screen View */}
       <main className="flex-1 flex overflow-hidden relative">
-        {activeTab === 'CHECKOUT' && <CheckoutScreen />}
-        {activeTab === 'TABLES' && <TableManagementScreen />}
-        {activeTab === 'KOT' && <KitchenKotScreen />}
-        {activeTab === 'PRODUCTS' && <ProductManagementScreen />}
-        {activeTab === 'QUEUE' && <SyncQueueScreen />}
-        {activeTab === 'HISTORY' && <SalesHistoryScreen />}
-        {activeTab === 'SETTINGS' && <SettingsScreen />}
+        <ErrorBoundary fallbackTitle="Terminal Screen Error">
+          {activeTab === 'CHECKOUT' && <CheckoutScreen />}
+          {activeTab === 'TABLES' && <TableManagementScreen />}
+          {activeTab === 'KOT' && <KitchenKotScreen />}
+          {activeTab === 'PRODUCTS' && <ProductManagementScreen />}
+          {activeTab === 'QUEUE' && <SyncQueueScreen />}
+          {activeTab === 'HISTORY' && <SalesHistoryScreen />}
+          {activeTab === 'SETTINGS' && <SettingsScreen />}
+        </ErrorBoundary>
 
         {/* Global Toast / Reassurance Banner */}
         {bannerMessage && (

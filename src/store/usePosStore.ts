@@ -137,6 +137,7 @@ interface PosState {
 
   saveProduct: (product: Product) => Promise<void>;
   removeProduct: (productId: string) => Promise<void>;
+  refreshProducts: () => Promise<void>;
   resetDemoCatalog: () => Promise<void>;
 
   // Cart actions
@@ -230,13 +231,13 @@ export const usePosStore = create<PosState>((set, get) => ({
   kots: [],
   activeKotModal: null,
 
-  isLocked: true,
-  cashierName: 'Rahul Patel',
-  counterName: 'Spice Counter 1',
-  storeName: 'Spice Cafe',
-  storeAddress: 'Sharthi Residency, Kumbhariya Gam, Surat, 395010',
-  storeGstin: '29AABCS1234F1Z8',
-  storePhone: '+91 80 2520 8900',
+  isLocked: false,
+  cashierName: 'Store Cashier',
+  counterName: 'Main Counter',
+  storeName: 'Kwikio Cafe',
+  storeAddress: 'Surat, Gujarat, India',
+  storeGstin: '24AABCS1234F1Z8',
+  storePhone: '+91 98765 43210',
 
   activeTab: 'CHECKOUT',
   isDarkMode: false,
@@ -341,6 +342,9 @@ export const usePosStore = create<PosState>((set, get) => ({
         });
       }
     } catch (_) {}
+
+    // Pull fresh menu products from Supabase
+    get().refreshProducts();
 
     // Keep POS store in sync whenever the auth store changes
     // (e.g. after staff PIN login, owner sign-in, or standalone mode activation)
@@ -765,7 +769,10 @@ export const usePosStore = create<PosState>((set, get) => ({
     return { success: false, error: res.error || 'Could not quick-login' };
   },
 
-  lockTerminal: () => set({ isLocked: true, activeTab: 'CHECKOUT' }),
+  lockTerminal: () => {
+    useAuthStore.getState().signOut();
+    set({ isLocked: false, activeTab: 'CHECKOUT' });
+  },
 
   setCategory: (category) => set({ selectedCategory: category }),
   setSearchQuery: (query) => set({ searchQuery: query }),
@@ -775,10 +782,28 @@ export const usePosStore = create<PosState>((set, get) => ({
       get().showBanner('Access Denied: Current role cannot edit menu products.');
       return;
     }
+    // 1. Local IndexedDB update
     await addOrUpdateProduct(product);
     const products = await getProducts();
     set({ products });
     get().showBanner(`Item "${product.name}" saved!`);
+
+    // 2. Cloud sync to Supabase
+    try {
+      const authState = useAuthStore.getState();
+      const bizId = authState.currentBusiness?.id || 'KWI-BUS_001';
+      const res = await restApi.products.save({
+        ...product,
+        businessId: bizId,
+      });
+      if (res && res.product) {
+        await addOrUpdateProduct(res.product);
+        const fresh = await getProducts();
+        set({ products: fresh });
+      }
+    } catch (err: any) {
+      console.warn('Product cloud sync queued:', err.message);
+    }
   },
 
   removeProduct: async (productId) => {
@@ -786,10 +811,47 @@ export const usePosStore = create<PosState>((set, get) => ({
       get().showBanner('Access Denied: Current role cannot remove menu products.');
       return;
     }
+    // 1. Local IndexedDB removal
     await deleteProduct(productId);
     const products = await getProducts();
     set({ products });
     get().showBanner('Item removed from menu');
+
+    // 2. Cloud deletion in Supabase
+    try {
+      await restApi.products.delete(productId);
+    } catch (err: any) {
+      console.warn('Product cloud deletion queued:', err.message);
+    }
+  },
+
+  refreshProducts: async () => {
+    try {
+      const authState = useAuthStore.getState();
+      const bizId = authState.currentBusiness?.id || 'KWI-BUS_001';
+      const prodRes = await restApi.products.getAll();
+      if (prodRes && prodRes.products && Array.isArray(prodRes.products)) {
+        const localCurrent = await getProducts();
+        const remoteIds = new Set(prodRes.products.map((p: any) => p.id));
+
+        // Purge items locally if deleted in Supabase
+        for (const lp of localCurrent) {
+          if (!remoteIds.has(lp.id) && lp.id.startsWith('KWI-PRD-')) {
+            await deleteProduct(lp.id);
+          }
+        }
+
+        // Add or update remote products into local IndexedDB
+        for (const rp of prodRes.products) {
+          await addOrUpdateProduct(rp);
+        }
+
+        const freshList = await getProducts();
+        set({ products: freshList });
+      }
+    } catch (err: any) {
+      console.warn('Could not refresh products from cloud:', err.message);
+    }
   },
 
   resetDemoCatalog: async () => {
